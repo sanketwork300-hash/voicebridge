@@ -1,0 +1,97 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicebridge"
+version = "0.1.0"
+description = "Self-hostable real-time speech-to-speech translation engine"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+keywords = ["speech-translation", "asr", "streaming", "subtitles", "tts", "real-time"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# The base install is deliberately tiny: it runs the gateway, the whole core
+# pipeline and mock mode. Nothing here pulls in PyTorch, so `pip install
+# voicebridge` stays fast and works on any platform. Real models are extras.
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "websockets>=12",
+  "numpy>=1.24",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Streaming ASR. WhisperLiveKit pins Python <3.14, so this extra is not
+# installable on 3.14+ even though VoiceBridge itself is.
+asr-whisperlivekit = ["whisperlivekit>=0.2.0; python_version < '3.14'"]
+
+# Local translation models (OPUS-MT, NLLB).
+translation-local = ["torch>=2.0", "transformers>=4.40", "sentencepiece>=0.1.99"]
+# IndicTrans2 additionally needs AI4Bharat's tokenizer toolkit.
+translation-indic = [
+  "torch>=2.0", "transformers>=4.40", "sentencepiece>=0.1.99",
+  "IndicTransToolkit>=1.0",
+]
+tts-piper = ["piper-tts>=1.2"]
+audio-device = ["sounddevice>=0.4.6"]
+
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "httpx>=0.27",
+  "ruff>=0.4",
+]
+
+# Everything that works without a GPU-only dependency.
+all = [
+  "voicebridge[asr-whisperlivekit]",
+  "voicebridge[translation-local]",
+  "voicebridge[translation-indic]",
+  "voicebridge[tts-piper]",
+  "voicebridge[audio-device]",
+]
+
+[project.scripts]
+voicebridge = "voicebridge.apps.cli.main:main"
+voicebridge-gateway = "voicebridge.apps.gateway.main:main"
+
+[project.urls]
+Homepage = "https://github.com/voicebridge/voicebridge"
+Documentation = "https://github.com/voicebridge/voicebridge/tree/main/docs"
+Issues = "https://github.com/voicebridge/voicebridge/issues"
+
+[tool.setuptools.packages.find]
+include = ["voicebridge*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+  "slow: requires model downloads or real hardware",
+  "benchmark: measures performance, not correctness",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

@@ -1,0 +1,64 @@
+# VoiceBridge configuration.
+#
+# Every value here can be overridden by an environment variable, which is what
+# the Docker profiles use. Secrets (API tokens) should come from the
+# environment only -- never commit one to this file.
+
+server:
+  host: 127.0.0.1        # bind to 0.0.0.0 only behind a reverse proxy
+  port: 8000
+  log_level: info
+
+security:
+  # api_token: set VOICEBRIDGE_API_TOKEN in the environment instead.
+  cors_origins: ["*"]
+  # Restrict who may open a WebSocket. Required for any non-localhost bind.
+  # Find your extension's id at chrome://extensions.
+  allowed_ws_origins: []
+  #   - "chrome-extension://*"
+  #   - "https://your-app.example.com"
+  max_sessions: 8
+  max_session_seconds: 14400        # 4 hours
+  max_audio_frames_per_second: 100
+
+providers:
+  # -------------------------------------------------------------- mock mode
+  # The default. Runs the entire UI and pipeline with no models, no GPU and no
+  # network. Switch the three providers below to go live.
+  asr:
+    provider: mock
+  translation:
+    provider: mock
+  tts:
+    provider: mock
+
+  # ------------------------------------------------------- live: entertainment
+  # Japanese/Korean -> English. OPUS-MT is Apache-2.0 and CPU-fast.
+  #
+  # asr:
+  #   provider: whisperlivekit
+  #   model: large-v3-turbo      # 'small' or 'base' on CPU
+  #   vac: true                  # voice activity controller
+  #   min_chunk_size: 0.5
+  # translation:
+  #   provider: opus_mt
+  #   num_beams: 2
+  # tts:
+  #   provider: piper
+  #   voices:
+  #     en: /models/piper/en_US-amy-medium.onnx
+
+  # -------------------------------------------------------------- live: Indic
+  # English -> Hindi/Marathi/Tamil. IndicTrans2 checkpoints are MIT-licensed.
+  #
+  # translation:
+  #   provider: indictrans2
+  #   large: false               # true selects the 1B models
+  #   num_beams: 5
+
+  # NLLB covers every pair in one model but its weights are CC-BY-NC-4.0.
+  # It refuses to load unless you acknowledge that restriction:
+  #
+  # translation:
+  #   provider: nllb
+  #   acknowledge_non_commercial: true

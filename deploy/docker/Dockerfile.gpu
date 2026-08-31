@@ -1,0 +1,43 @@
+# VoiceBridge — CUDA image.
+#
+# Built on NVIDIA's CUDA runtime so PyTorch finds a working driver stack.
+# Requires the NVIDIA Container Toolkit on the host.
+#
+#   docker compose --profile gpu up
+
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3.11 python3.11-venv python3-pip ffmpeg curl \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/models/huggingface \
+    VOICEBRIDGE_HOST=0.0.0.0 \
+    VOICEBRIDGE_PORT=8000 \
+    VOICEBRIDGE_DEVICE=cuda
+
+WORKDIR /app
+
+COPY pyproject.toml README.md LICENSE ./
+COPY voicebridge ./voicebridge
+
+# The full stack: streaming ASR, local translation models and Piper TTS.
+RUN python3.11 -m pip install --upgrade pip \
+ && python3.11 -m pip install ".[asr-whisperlivekit,translation-local,translation-indic,tts-piper]"
+
+COPY config ./config
+
+RUN mkdir -p /models && useradd --create-home --uid 10001 voicebridge \
+ && chown -R voicebridge:voicebridge /models /app
+USER voicebridge
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+
+CMD ["voicebridge-gateway"]

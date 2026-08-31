@@ -1,0 +1,106 @@
+# VoiceBridge deployment profiles.
+#
+#   docker compose --profile mock up      # no models, no GPU — the demo
+#   docker compose --profile cpu  up      # real models on CPU
+#   docker compose --profile gpu  up      # real models on CUDA
+#
+# The pipeline runs in a single process on purpose. Splitting ASR, translation
+# and TTS into separate containers adds a network hop to every stage of a
+# latency-critical path; it is worth doing only when the stages need to scale
+# independently, which is a much larger deployment than this file targets.
+# docs/deployment.md describes that split.
+
+name: voicebridge
+
+x-common: &common
+  restart: unless-stopped
+  stop_grace_period: 20s
+  networks: [voicebridge]
+
+services:
+  # ------------------------------------------------------------------ mock
+  gateway-mock:
+    <<: *common
+    profiles: ["mock"]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    ports: ["8000:8000"]
+    environment:
+      VOICEBRIDGE_ASR_PROVIDER: mock
+      VOICEBRIDGE_TRANSLATION_PROVIDER: mock
+      VOICEBRIDGE_TTS_PROVIDER: mock
+      VOICEBRIDGE_WS_ORIGINS: "chrome-extension://*"
+
+  # ------------------------------------------------------------------- cpu
+  gateway-cpu:
+    <<: *common
+    profiles: ["cpu"]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+      args:
+        EXTRAS: "[asr-whisperlivekit,translation-local,translation-indic,tts-piper]"
+    ports: ["8000:8000"]
+    environment:
+      VOICEBRIDGE_ASR_PROVIDER: whisperlivekit
+      VOICEBRIDGE_TRANSLATION_PROVIDER: opus_mt
+      VOICEBRIDGE_TTS_PROVIDER: piper
+      VOICEBRIDGE_API_TOKEN: ${VOICEBRIDGE_API_TOKEN:-}
+      VOICEBRIDGE_WS_ORIGINS: "chrome-extension://*"
+      VOICEBRIDGE_DEVICE: cpu
+      # A 'small' ASR model is the largest that keeps up with real time on a
+      # typical CPU. Raise it only after measuring; see docs/performance.md.
+      OMP_NUM_THREADS: "4"
+    volumes:
+      - models:/models
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
+  # ------------------------------------------------------------------- gpu
+  gateway-gpu:
+    <<: *common
+    profiles: ["gpu"]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.gpu
+    ports: ["8000:8000"]
+    environment:
+      VOICEBRIDGE_ASR_PROVIDER: whisperlivekit
+      VOICEBRIDGE_TRANSLATION_PROVIDER: opus_mt
+      VOICEBRIDGE_TTS_PROVIDER: piper
+      VOICEBRIDGE_API_TOKEN: ${VOICEBRIDGE_API_TOKEN:-}
+      VOICEBRIDGE_WS_ORIGINS: "chrome-extension://*"
+      VOICEBRIDGE_DEVICE: cuda
+    volumes:
+      - models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # ----------------------------------------------------------------- proxy
+  # TLS terminator. Browsers require wss:// from an https:// page, and the
+  # extension should never talk to a plaintext socket over a network.
+  proxy:
+    <<: *common
+    profiles: ["tls"]
+    image: caddy:2-alpine
+    ports: ["443:443", "80:80"]
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+networks:
+  voicebridge:
+
+volumes:
+  models:
+  caddy-data:
+  caddy-config:

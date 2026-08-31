@@ -1,0 +1,92 @@
+/* VoiceBridge subtitle overlay.
+   All rules are scoped under #voicebridge-overlay and use high-specificity
+   resets, because host pages (video sites especially) have aggressive global
+   styles that would otherwise inherit into the overlay. */
+
+#voicebridge-overlay {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483647;           /* above full-screen video players */
+  max-width: min(1100px, 92vw);
+  width: max-content;
+  pointer-events: none;          /* never steal clicks from the page */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  text-align: center;
+  transition: opacity 160ms ease;
+}
+
+#voicebridge-overlay[data-position="bottom"] { bottom: 9vh; }
+#voicebridge-overlay[data-position="top"]    { top: 6vh; }
+#voicebridge-overlay[data-position="center"] { top: 50%; transform: translate(-50%, -50%); }
+
+#voicebridge-overlay .vb-cue {
+  display: block;
+  margin: 0 auto 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: rgba(8, 10, 16, var(--vb-opacity, 0.85));
+  color: #fff;
+  line-height: 1.35;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  word-wrap: break-word;
+  backdrop-filter: blur(3px);
+}
+
+#voicebridge-overlay .vb-translation {
+  font-size: var(--vb-size, 22px);
+  font-weight: 600;
+}
+
+/* Original-language line in dual-subtitle mode: deliberately smaller and
+   dimmer so the translation stays the primary reading line. */
+#voicebridge-overlay .vb-original {
+  font-size: calc(var(--vb-size, 22px) * 0.72);
+  font-weight: 400;
+  opacity: 0.78;
+}
+
+/* Provisional text the recogniser may still retract. Visually distinct so a
+   viewer never mistakes an unstable guess for a committed subtitle. */
+#voicebridge-overlay .vb-partial {
+  font-style: italic;
+  opacity: 0.6;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+}
+
+#voicebridge-overlay .vb-speaker {
+  font-size: calc(var(--vb-size, 22px) * 0.6);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-right: 8px;
+}
+
+#voicebridge-overlay .vb-status {
+  font-size: 13px;
+  background: rgba(255, 180, 84, 0.92);
+  color: #1a1206;
+  font-weight: 600;
+}
+
+#voicebridge-overlay .vb-error {
+  font-size: 13px;
+  background: rgba(255, 107, 107, 0.95);
+  color: #2a0707;
+  font-weight: 600;
+}
+
+#voicebridge-overlay.vb-hidden { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  #voicebridge-overlay { transition: none; }
+}
+
+@media (prefers-contrast: more) {
+  #voicebridge-overlay .vb-cue {
+    background: #000;
+    border: 2px solid #fff;
+    text-shadow: none;
+  }
+}

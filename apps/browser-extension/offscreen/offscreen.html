@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>VoiceBridge audio</title></head>
+  <body>
+    <!-- Offscreen document: hosts the tab-audio MediaStream and the WebSocket.
+         A service worker cannot own either (no DOM, and it is terminated when
+         idle), which is exactly why the offscreen API exists. -->
+    <script type="module" src="offscreen.js"></script>
+  </body>
+</html>

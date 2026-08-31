@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Models are large and separately licensed: never commit them.
+models/
+*.onnx
+*.onnx.json
+*.bin
+*.safetensors
+*.pt
+*.ckpt
+
+# Local artefacts
+*.wav
+*.srt
+*.vtt
+!tests/**/fixtures/*.wav
+benchmarks/results/
+.env
+node_modules/

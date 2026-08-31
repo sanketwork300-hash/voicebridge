@@ -1,0 +1,132 @@
+# Troubleshooting
+
+## Extension
+
+**"Chrome would not grant tab capture"**
+Chrome grants `tabCapture` only when the extension is invoked *on the tab being
+captured*. Click the VoiceBridge icon on that tab and press Start; do not start
+it from a different tab.
+
+**"This page cannot be captured"**
+`chrome://` pages, the Web Store and other restricted pages are off-limits to
+extensions. Use a normal http(s) page.
+
+**Subtitles appear but the tab has gone silent**
+Capturing a tab detaches its audio from the speakers. VoiceBridge reconnects it
+through a passthrough gain node — if you hear nothing, check that **Original
+audio** is not set to *Mute original*.
+
+**No overlay, but the popup says it is connected**
+The content script cannot be injected into restricted pages. Capture and
+translation still work; only the on-page overlay is missing. Watch the popup
+status instead.
+
+**"Cannot reach the VoiceBridge gateway"**
+Check it is running (`curl localhost:8000/health`) and that the URL in Options
+matches. For a remote gateway you must grant the optional host permission and
+use `https://` (browsers block `ws://` from `https://` pages).
+
+**Extension reconnects in a loop**
+Usually a rejected origin. Add your extension id to `VOICEBRIDGE_WS_ORIGINS`
+(`chrome-extension://<id>`, from `chrome://extensions`), or check the token.
+
+---
+
+## Gateway
+
+**`ProviderUnavailable: whisperlivekit is not installed`**
+```bash
+pip install 'voicebridge[asr-whisperlivekit]'
+```
+On Python 3.14+ this command **succeeds but installs nothing**: WhisperLiveKit
+publishes `requires_python = ">=3.11,<3.14"`, so the extra's environment marker
+excludes it. That is why the error persists after an apparently successful
+install. Check with `python -c "import whisperlivekit"`; use Python 3.11–3.13
+for real ASR. Core and mock mode work on 3.14.
+
+**`NLLB-200 weights are licensed CC-BY-NC-4.0`**
+Working as intended. Either acknowledge it
+(`acknowledge_non_commercial: true`) or use `opus_mt` / `indictrans2`, which are
+Apache-2.0 and MIT respectively.
+
+**`could not load OPUS-MT checkpoint … for xx->yy`**
+OPUS-MT does not publish a checkpoint for every direction. Pick another provider
+for that pair — the error names the direction it tried.
+
+**`IndicTrans2 does not support ja->en`**
+Correct: IndicTrans2 covers English and the 22 scheduled Indian languages only.
+Use `opus_mt` for Japanese and Korean.
+
+**`FFmpeg was not found on PATH`**
+Only needed for compressed or containerised input. The extension sends raw PCM
+and does not need it. Install it, or feed WAV/PCM.
+
+**`/ready` returns 503**
+A configured provider cannot be built. The response body names it. Common
+causes: a missing extra, a missing Piper voice file, or an unacknowledged
+non-commercial licence.
+
+---
+
+## Quality
+
+**Translations are fragmentary — half sentences**
+The segmenter is flushing too early. Use `--profile accurate`, or raise
+`minimum_stable_chars` / `pause_threshold_ms` for that language.
+
+**Japanese or Korean output says the opposite of the speech**
+The classic symptom of translating before the sentence ending, where tense and
+negation live. Check the source language is actually set to `ja`/`ko` — the
+sentence-final profile only applies when the language is known. With
+`source_language: auto`, the profile is generic until detection stabilises.
+
+**Character or artist names keep changing**
+Add glossary terms. This is what they are for:
+```json
+{"glossary": {"terms": [{"source": "五条悟", "target": "Satoru Gojo"}]}}
+```
+
+**Honorifics are dropped**
+Set `honorifics: preserve_honorifics`. Note it deliberately does nothing when a
+segment contains two *different* honorifics — attributing them without word
+alignment would be guessing. A glossary entry always wins.
+
+**Subtitles flicker and rewrite constantly**
+That is the partial hypothesis being revised, and it is expected in
+`low_latency`. Switch to `balanced`, or style partials less prominently.
+
+---
+
+## Latency
+
+**Dubbed audio drifts further behind**
+TTS is slower than real time. `/metrics` shows `tts_backlog_seconds` rising and
+you will see `tts_backlog` warnings. Use a faster voice, shrink segments, or
+switch to subtitle-only mode. The system reports this rather than drifting
+silently — that is the design.
+
+**`audio_backlog` warnings on a live source**
+ASR cannot keep up; audio is being dropped to stay current. Use a smaller model
+or a GPU. Check RTF with the benchmark harness — above 1.0 the model is simply
+too big for the machine.
+
+**First subtitle takes 30+ seconds**
+Almost always first-run model download, not latency. Watch the logs; subsequent
+sessions use the cache. Call `warmup()` (or hit the gateway once) before you
+need it.
+
+---
+
+## Diagnostics
+
+```bash
+voicebridge providers                     # what is available, and its licence
+curl localhost:8000/ready                 # why a provider failed
+curl localhost:8000/v1/sessions           # live queue depths and latency
+curl localhost:8000/metrics               # Prometheus metrics
+voicebridge translate clip.wav --json     # raw event stream for one file
+voicebridge -v serve                      # debug logging
+```
+
+`GET /v1/sessions/{id}` reports every queue's depth, capacity, policy and drop
+count — the fastest way to find which stage is the bottleneck.

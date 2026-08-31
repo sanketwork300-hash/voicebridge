@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VoiceBridge</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>VoiceBridge</h1>
+    <span id="badge" class="badge">idle</span>
+  </header>
+
+  <main>
+    <section class="field">
+      <label for="preset">Preset</label>
+      <select id="preset">
+        <option value="">Custom</option>
+        <option value="anime_drama">Anime / Drama</option>
+        <option value="kpop_live">K-pop / Live</option>
+        <option value="conference">Conference</option>
+      </select>
+    </section>
+
+    <div class="grid">
+      <section class="field">
+        <label for="source">Source</label>
+        <select id="source">
+          <option value="auto">Auto-detect</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+          <option value="en">English</option>
+          <option value="zh">Chinese</option>
+          <option value="hi">Hindi</option>
+        </select>
+      </section>
+      <section class="field">
+        <label for="target">Target</label>
+        <select id="target">
+          <option value="en">English</option>
+          <option value="hi">Hindi</option>
+          <option value="mr">Marathi</option>
+          <option value="ta">Tamil</option>
+          <option value="te">Telugu</option>
+          <option value="bn">Bengali</option>
+          <option value="ja">Japanese</option>
+          <option value="ko">Korean</option>
+        </select>
+      </section>
+    </div>
+
+    <section class="field">
+      <span class="label">Mode</span>
+      <div class="radios" role="radiogroup" aria-label="Translation mode">
+        <label><input type="radio" name="mode" value="subtitles" checked> Subtitles</label>
+        <label><input type="radio" name="mode" value="speech"> Speech</label>
+        <label><input type="radio" name="mode" value="speech_and_subtitles"> Both</label>
+      </div>
+    </section>
+
+    <section class="field">
+      <span class="label">Profile</span>
+      <div class="radios" role="radiogroup" aria-label="Latency profile">
+        <label><input type="radio" name="profile" value="low_latency"> Low latency</label>
+        <label><input type="radio" name="profile" value="balanced" checked> Balanced</label>
+        <label><input type="radio" name="profile" value="accurate"> Accurate</label>
+      </div>
+      <p class="hint" id="profileHint">
+        Balanced is recommended. Japanese and Korean put tense and negation at the
+        end of a sentence, so very low latency causes more revisions.
+      </p>
+    </section>
+
+    <details>
+      <summary>Options</summary>
+      <section class="field">
+        <label class="check"><input type="checkbox" id="dual"> Show original subtitles too</label>
+      </section>
+      <section class="field">
+        <label for="originalAudio">Original audio</label>
+        <select id="originalAudio">
+          <option value="original_only">Keep original</option>
+          <option value="mixed">Duck while dubbing</option>
+          <option value="translation_only">Mute original</option>
+        </select>
+      </section>
+      <section class="field">
+        <label for="names">Names</label>
+        <select id="names">
+          <option value="translate">Translate</option>
+          <option value="preserve">Preserve original script</option>
+          <option value="preserve_and_romanize">Preserve + romanize</option>
+        </select>
+      </section>
+      <section class="field">
+        <label for="honorifics">Honorifics</label>
+        <select id="honorifics">
+          <option value="natural_english">Natural English</option>
+          <option value="preserve_honorifics">Preserve (-san, -kun)</option>
+        </select>
+      </section>
+      <section class="field">
+        <label for="size">Subtitle size: <output id="sizeOut">22</output>px</label>
+        <input type="range" id="size" min="14" max="42" step="1" value="22">
+      </section>
+      <section class="field">
+        <label for="server">Gateway URL</label>
+        <input type="url" id="server" placeholder="http://127.0.0.1:8000">
+      </section>
+      <section class="field">
+        <label for="token">API token (optional)</label>
+        <input type="password" id="token" autocomplete="off" placeholder="leave empty for local mode">
+      </section>
+    </details>
+
+    <div class="actions">
+      <button id="start" class="primary">Start translation</button>
+      <button id="pause" hidden>Pause</button>
+      <button id="stop" hidden>Stop</button>
+    </div>
+
+    <section class="status" id="status" aria-live="polite">
+      <div><i class="dot" id="dConn"></i><span>Connection</span><b id="connText">idle</b></div>
+      <div><i class="dot" id="dCap"></i><span>Capture</span><b id="capText">idle</b></div>
+      <div><i class="dot" id="dLang"></i><span>Detected</span><b id="langText">—</b></div>
+    </section>
+    <p class="error" id="error" hidden></p>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
