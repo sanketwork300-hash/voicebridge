@@ -36,12 +36,41 @@ produces duplicated and truncated words at every boundary.
 | `await processor.create_tasks()` | `audio_processor.py:999` | Returns an async generator of `FrontData`. |
 | `await processor.process_audio(bytes)` | `audio_processor.py:1105` | Feeds audio; an empty message signals end of stream. |
 | `await processor.cleanup()` | `audio_processor.py:1067` | Teardown. |
-| `FrontData.lines` | `timed_objects.py` | Cumulative committed `Segment`s → our `ASR_STABLE`. |
+| `FrontData.lines` | `timed_objects.py` | Cumulative `Segment`s. Committed *tokens*, but see below: the last line keeps growing. New text per line index → our `ASR_STABLE`. |
 | `FrontData.buffer_transcription` | `timed_objects.py` | Unstable hypothesis tail → our `ASR_PARTIAL`. |
+| `WhisperLiveKitConfig.from_kwargs` | `config.py:262` | Field names for `TranscriptionEngine(**kwargs)`. **Unknown keys are dropped with a log warning, not rejected.** The size field is `model_size`, not `model`; the language field is `lan`. |
 
-`results_formatter` (`audio_processor.py:928`) is where the two are assembled;
-that committed/tail split is exactly VoiceBridge's stable/partial contract,
-which is why our adapter is thin.
+`results_formatter` (`audio_processor.py:928`) is where the two are assembled.
+
+### Corrections found by running it (2026-09-02)
+
+The first version of this section was written from the source alone and got
+two things wrong that only showed up when real audio was streamed through:
+
+* **`lines` grouping is not commitment.** `tokens_alignment.py::get_lines`
+  appends committed tokens to `current_line_tokens` and re-emits that as the
+  *last* element of `lines` on every snapshot — same `start`, growing `end`
+  and `text`. The line is moved to `validated_segments` only when a `Silence`
+  token arrives, and `audio_processor.py` sets `MIN_DURATION_REAL_SILENCE = 5`
+  seconds. Treating each snapshot's lines as final therefore re-emitted the
+  whole growing sentence (duplicated text downstream); waiting for the line to
+  close held every sentence back until a five-second pause. The adapter now
+  forwards, per line index, only the text a line has grown by. The tokens
+  themselves are immutable once committed (`local_agreement/online_asr.py`,
+  `committed_in_buffer`); a revision is logged and counted, never re-emitted.
+* **`model=` was silently ignored.** `from_kwargs` dropped it, so every
+  deployment loaded the default `base` model whatever the YAML said.
+* Silence gaps appear in `lines` as segments with `speaker == -2` and empty
+  text; `-1` means "no diarization". `Segment.speaker` is annotated `str` but
+  holds these ints.
+* `backend_policy` selects the streaming policy: `simulstreaming` (default;
+  faster-whisper encoder + a PyTorch decoder, which also downloads OpenAI's
+  `small.pt` to `~/.cache/whisper`) or `localagreement` (faster-whisper /
+  CTranslate2 end to end). On a 16-core CPU with no GPU, `small` +
+  `simulstreaming` fell 24–60 s behind real time; `base` + `localagreement`
+  produced the first committed text ~13 s after the audio and the last
+  translation ~22 s after the end of a 9.6 s clip. Those are observations
+  from one run, not benchmarks.
 
 ### What we reuse conceptually, not literally
 

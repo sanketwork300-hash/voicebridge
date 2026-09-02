@@ -58,12 +58,21 @@ class OpusMTTranslationEngine(TranslationEngine):
         max_new_tokens: int = 256,
         num_beams: int = 2,
         model_cache_size: int = 4,
+        preload_pairs: list | None = None,
         **_: object,
     ):
         self.device = select_device(device)
         self.max_new_tokens = max_new_tokens
         self.num_beams = num_beams
         self._cache = ModelCache(max_models=model_cache_size)
+        #: Directions to load at warmup, e.g. ``[["ja", "en"], ["en", "hi"]]``.
+        #: A checkpoint is ~300 MB; downloading it inside the first session
+        #: delays that session's first translation by minutes on a cold cache.
+        self.preload_pairs = [tuple(p) for p in (preload_pairs or [])]
+
+    async def warmup(self) -> None:
+        for source, target in self.preload_pairs:
+            await self._load(source, target)
 
     @property
     def capabilities(self) -> TranslationCapabilities:

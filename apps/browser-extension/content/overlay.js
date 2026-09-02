@@ -23,17 +23,45 @@
   let partialTimer = null;
   let statusTimer = null;
 
+  // Replaced elements render no children, so appending the overlay to one would
+  // silently hide it. A player that full-screens a wrapper <div> (YouTube and
+  // most sites) is fine; one that full-screens the bare <video> is not
+  // reachable from here at all, and we leave the overlay in <html> rather than
+  // move it somewhere it definitely cannot paint.
+  const CANNOT_HOST_CHILDREN = new Set(['VIDEO', 'IFRAME', 'EMBED', 'OBJECT', 'IMG', 'CANVAS']);
+
+  // A full-screened element is promoted to the browser's *top layer*, which no
+  // z-index outside its subtree can paint above -- so the overlay has to
+  // actually live inside it while full-screen is active.
+  function desiredParent() {
+    const fs = document.fullscreenElement || document.webkitFullscreenElement || null;
+    if (fs && !CANNOT_HOST_CHILDREN.has(fs.tagName)) return fs;
+    return document.documentElement;
+  }
+
   function ensureRoot() {
-    if (root && document.body.contains(root)) return root;
-    root = document.createElement('div');
-    root.id = 'voicebridge-overlay';
-    root.setAttribute('role', 'region');
-    root.setAttribute('aria-label', 'VoiceBridge live translated subtitles');
-    root.setAttribute('aria-live', 'polite');
-    root.setAttribute('aria-atomic', 'false');
-    document.documentElement.appendChild(root);
+    const parent = desiredParent();
+    // Check against the parent we actually mount into. Testing document.body
+    // here would never match, because the overlay is a sibling of <body>.
+    if (root && root.isConnected && root.parentNode === parent) return root;
+    if (!root || !root.isConnected) {
+      root = document.createElement('div');
+      root.id = 'voicebridge-overlay';
+      root.setAttribute('role', 'region');
+      root.setAttribute('aria-label', 'VoiceBridge live translated subtitles');
+      root.setAttribute('aria-live', 'polite');
+      root.setAttribute('aria-atomic', 'false');
+    }
+    // appendChild moves an existing node, so re-parenting on a full-screen
+    // change keeps the rendered cues intact.
+    parent.appendChild(root);
     applySettings();
     return root;
+  }
+
+  function onFullscreenChange() {
+    if (!root) return;   // not mounted; nothing to re-parent
+    ensureRoot();
   }
 
   function applySettings() {
@@ -103,6 +131,11 @@
     cues = [];
     partialText = '';
   }
+
+  // Registered once (the whole script is guarded by __voicebridgeOverlayLoaded).
+  // Capture phase, because some players stop the event bubbling to document.
+  document.addEventListener('fullscreenchange', onFullscreenChange, true);
+  document.addEventListener('webkitfullscreenchange', onFullscreenChange, true);
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message.type) {

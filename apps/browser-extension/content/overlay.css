@@ -7,7 +7,10 @@
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 2147483647;           /* above full-screen video players */
+  /* Wins against ordinary page stacking contexts. It does NOT beat a
+     full-screened element, which the browser promotes to the top layer --
+     overlay.js re-parents the overlay into that element instead. */
+  z-index: 2147483647;
   max-width: min(1100px, 92vw);
   width: max-content;
   pointer-events: none;          /* never steal clicks from the page */

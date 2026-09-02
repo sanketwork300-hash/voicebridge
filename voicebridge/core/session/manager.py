@@ -97,6 +97,31 @@ class SessionManager:
         self._shared[cache_key] = instance
         return instance
 
+    async def warmup(self) -> list[str]:
+        """Preload the configured providers before the first session.
+
+        Model loading is the slow, GIL-heavy part of going live: WhisperLiveKit
+        downloads and converts weights on first construction, which took long
+        enough on a live WebSocket that the client's keepalive gave up before a
+        single event was sent. Doing it once at startup means a session only
+        ever pays the streaming cost. Returns the names of providers that could
+        not be warmed so the caller can log them; failures are not fatal
+        because mock providers and subtitle-only sessions must keep working.
+        """
+        failed: list[str] = []
+        for kind, registry in (
+            ("asr", asr_registry),
+            ("translation", translation_registry),
+            ("tts", tts_registry),
+        ):
+            try:
+                provider = self._provider(kind, registry, kind)
+                await provider.warmup()
+            except Exception as exc:
+                logger.warning("%s provider warmup failed: %s", kind, exc)
+                failed.append(f"{kind}: {exc}")
+        return failed
+
     def build_providers(self, config: SessionConfig) -> ProviderSet:
         asr = self._provider("asr", asr_registry, "asr")
         translation = self._provider("translation", translation_registry, "translation")

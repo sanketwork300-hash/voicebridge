@@ -148,12 +148,27 @@ class PiperTTSEngine(TTSEngine):
         # length_scale > 1 slows speech down; speed is its inverse.
         length_scale = 1.0 / max(0.25, min(4.0, speed))
 
+        # piper-tts >= 1.3 (verified on 1.7.0, ``piper/voice.py``) takes the
+        # rate through ``syn_config=SynthesisConfig(length_scale=...)``;
+        # ``synthesize(text, syn_config=None, include_alignments=False)`` and
+        # ``synthesize_wav(text, wav_file, syn_config=None, ...)``. Older
+        # releases accepted ``length_scale`` as a keyword. Build the config
+        # when the class exists so speed is honoured rather than silently
+        # dropped by the TypeError fallback below.
+        syn_kwargs: dict[str, Any] = {"length_scale": length_scale}
+        try:
+            from piper.config import SynthesisConfig
+
+            syn_kwargs = {"syn_config": SynthesisConfig(length_scale=length_scale)}
+        except ImportError:
+            pass
+
         synth_wav = getattr(voice, "synthesize_wav", None)
         if callable(synth_wav):
             buf = io.BytesIO()
             with wave.open(buf, "wb") as wf:
                 try:
-                    synth_wav(text, wf, length_scale=length_scale)
+                    synth_wav(text, wf, **syn_kwargs)
                 except TypeError:
                     synth_wav(text, wf)
             buf.seek(0)
@@ -165,7 +180,7 @@ class PiperTTSEngine(TTSEngine):
         if callable(synth):
             chunks: list[bytes] = []
             try:
-                result = synth(text, length_scale=length_scale)
+                result = synth(text, **syn_kwargs)
             except TypeError:
                 result = synth(text)
             if isinstance(result, (bytes, bytearray)):

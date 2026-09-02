@@ -32,7 +32,10 @@ Alpha. What works today, verified by the test suite:
 - ✅ TTS with strict playback ordering and backlog accounting
 - ✅ Session glossary, honorific policy, dual subtitles
 - ✅ Mock mode — the full UI with no GPU, no models, no network
-- ✅ Docker (mock / cpu / gpu profiles), 126 passing tests
+- ✅ Docker (mock / cpu / gpu profiles), 131 passing tests
+- ✅ Live path run once end to end on real speech (CPU, `whisperlivekit` base +
+  `opus_mt` en→hi): committed subtitles arrived ~13 s behind the audio on a
+  16-core CPU with no GPU — see `docs/reference-analysis.md`
 - ⚠️ Latency targets are **not yet benchmarked on real audio** — see [Known limitations](#known-limitations)
 - ⚠️ Desktop app and virtual-audio output are designed but not implemented
 
@@ -51,6 +54,12 @@ voicebridge-gateway
 
 Open <http://127.0.0.1:8000> and press **Start translation**. The built-in demo
 page captures your microphone and shows the live subtitle flow.
+
+**Mock mode does not recognise or translate anything.** The mock ASR ignores
+the audio and replays a fixed script against the audio clock; the mock
+translator is a phrase table. You will see English demo sentences you never
+said — that is the plumbing check working, not a bug. Real recognition needs
+the model extras below.
 
 With Docker instead:
 
@@ -89,19 +98,31 @@ Edit `config/voicebridge.yaml` or set environment variables:
 providers:
   asr:
     provider: whisperlivekit
-    model: large-v3-turbo      # use 'small' or 'base' on CPU
+    model: large-v3-turbo      # GPU. On CPU: 'base' (verified) or 'small'
+    backend_policy: localagreement   # CPU. WhisperLiveKit's default
+                                     # 'simulstreaming' fell 24–60 s behind
+                                     # real time on a 16-core CPU
   translation:
-    provider: opus_mt          # Apache-2.0, ja→en and ko→en
+    provider: opus_mt          # Apache-2.0
+    preload_pairs: [[ja, en], [ko, en]]   # fetched at startup, not mid-session
   tts:
     provider: piper
     voices:
-      en: /models/piper/en_US-amy-medium.onnx
+      en: /models/piper/en_US-lessac-medium.onnx   # each voice has its own licence
 ```
 
 ```bash
-pip install 'voicebridge[asr-whisperlivekit,translation-local,tts-piper]'
-voicebridge-gateway
+# Python 3.11–3.13 venv. CPU-only torch wheels avoid the multi-GB CUDA download.
+uv pip install --python .venv/bin/python \
+  --index https://download.pytorch.org/whl/cpu \
+  -e '.[asr-whisperlivekit,translation-local,tts-piper]'
+.venv/bin/python -m voicebridge.apps.gateway.main
 ```
+
+The gateway loads every configured model before it accepts sessions and logs
+`provider warmup finished`; the first start downloads Whisper and OPUS-MT
+checkpoints (hundreds of MB) and can take minutes. Check
+`curl localhost:8000/health` reports `"mock_mode": false` before testing.
 
 GPU:
 

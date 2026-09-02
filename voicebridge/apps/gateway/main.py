@@ -62,6 +62,20 @@ def create_app(config: AppConfig | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         _warn_on_insecure_bind(config)
+        if not config.mock_mode:
+            # Load real models before accepting sessions; see
+            # SessionManager.warmup for why this cannot wait for the first one.
+            logger.info("warming up providers: %s", {
+                kind: (config.providers.get(kind) or {}).get("provider", "mock")
+                for kind in ("asr", "translation", "tts")
+            })
+            started = asyncio.get_running_loop().time()
+            failed = await manager.warmup()
+            logger.info(
+                "provider warmup finished in %.1fs%s",
+                asyncio.get_running_loop().time() - started,
+                f"; unavailable: {failed}" if failed else "",
+            )
         reaper = asyncio.create_task(_reaper(manager))
         try:
             yield

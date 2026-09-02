@@ -12,10 +12,14 @@ is Apache-2.0 licensed. We adapt it rather than reinvent it.
 
 API used (verified against WhisperLiveKit 0.2.26, commit b781ce9)
 -----------------------------------------------------------------
-``whisperlivekit.TranscriptionEngine``
+``whisperlivekit.TranscriptionEngine(**kwargs)``
     Process-wide model holder. It is a **singleton**: constructing a second one
     returns the first (``core.py``). We honour that and share one engine across
-    sessions, which is also what its own server does.
+    sessions, which is also what its own server does. Keyword arguments are
+    the field names of ``WhisperLiveKitConfig`` (``config.py``): ``model_size``,
+    ``lan``, ``backend``, ``vac``, ``min_chunk_size``, ``diarization``,
+    ``pcm_input``, ``warmup_file``. Unknown keys are dropped with a warning,
+    not rejected.
 ``whisperlivekit.AudioProcessor(transcription_engine=..., language=...,
     target_language=..., mode=..., pcm_input=...)``
     Per-session processor.
@@ -26,12 +30,27 @@ API used (verified against WhisperLiveKit 0.2.26, commit b781ce9)
 
 ``FrontData`` (``whisperlivekit/timed_objects.py``) carries:
 ``lines``
-    Cumulative list of committed ``Segment``s -> our ``ASR_STABLE``.
+    Cumulative list of ``Segment``s. **Grouping is not commitment.** Read from
+    ``tokens_alignment.py::get_lines``: committed tokens accumulate in
+    ``current_line_tokens`` and are appended as the *last* element of
+    ``lines`` on every snapshot, with the same ``start`` and a growing ``end``
+    and ``text``; that line moves to ``validated_segments`` only when a
+    ``Silence`` token arrives, and ``audio_processor.py`` sets
+    ``MIN_DURATION_REAL_SILENCE = 5`` seconds for that. Silence gaps appear
+    as segments with ``speaker == -2`` and empty text. The *tokens* inside a
+    line are committed by the policy (LocalAgreement's
+    ``committed_in_buffer`` in ``local_agreement/online_asr.py``; AlignAtt's
+    emitted tokens for SimulStreaming) and are not revised afterwards.
 ``buffer_transcription``
-    The unstable hypothesis tail -> our ``ASR_PARTIAL``.
+    The unstable hypothesis tail beyond the committed tokens.
 
-That committed/tail split is exactly VoiceBridge's stable/partial contract,
-which is why the adapter is thin.
+Mapping to VoiceBridge's contract therefore is per *line index*: the text a
+line has grown by since the previous snapshot -> ``ASR_STABLE`` (so stable
+text flows token by token, and the segmenter decides translation units);
+``buffer_transcription`` -> ``ASR_PARTIAL``. Forwarding whole lines whenever
+their end time moves -- the obvious reading of the field name -- re-emits the
+entire growing sentence on every snapshot, and waiting for the line to close
+holds every sentence back until a five-second pause.
 
 PCM input
 ---------
@@ -81,6 +100,11 @@ class _Session:
         self.committed_end = 0.0
         self.last_partial = ""
         self.announced_language: str | None = None
+        #: Text already forwarded per line index in ``FrontData.lines``.
+        #: Lines are cumulative and keep their index, so the delta since the
+        #: last snapshot is what is new.
+        self.forwarded: dict[int, str] = {}
+        self.revisions = 0
 
     def next_sequence(self) -> int:
         self.sequence += 1
@@ -145,8 +169,13 @@ class WhisperLiveKitASREngine(ASREngine):
                     "succeeds without providing it."
                 ) from exc
 
+            # Field names are those of ``WhisperLiveKitConfig`` (``config.py``).
+            # ``from_kwargs`` silently drops unknown keys with only a log
+            # warning, so a wrong name here does not fail -- it quietly loads
+            # the default ``base`` model. The size field is ``model_size``,
+            # not ``model``; ``lan`` is the language field.
             kwargs: dict[str, Any] = {
-                "model": self.model,
+                "model_size": self.model,
                 "diarization": self.diarization,
                 "vac": self.vac,
                 "min_chunk_size": self.min_chunk_size,
@@ -250,49 +279,41 @@ class WhisperLiveKitASREngine(ASREngine):
             )
             return
 
-        for line in getattr(front, "lines", []) or []:
-            text = (getattr(line, "text", "") or "").strip()
+        for index, line in enumerate(getattr(front, "lines", []) or []):
+            if _is_silence(line):
+                continue
+            fields = _line_fields(line)
+            text = fields["text"]
             if not text:
                 continue
-            start = float(getattr(line, "start", 0.0) or 0.0)
-            end = float(getattr(line, "end", 0.0) or 0.0)
-            if end <= session.committed_end + 1e-6:
-                continue  # already forwarded; snapshots are cumulative
-            session.committed_end = end
-
-            speaker = getattr(line, "speaker", None)
-            # WhisperLiveKit uses -1 for "no diarization" and -2 for silence.
-            if speaker is not None and int(speaker) < 0:
-                speaker = None
-
-            detected = getattr(line, "detected_language", None)
-            if detected and detected != session.announced_language:
-                session.announced_language = detected
-                await self._put(
-                    session,
-                    Event(
-                        event_type=EventType.LANGUAGE_DETECTED,
-                        sequence_id=session.next_sequence(),
-                        payload={"language": detected, "confidence": None},
-                    ),
+            seen = session.forwarded.get(index, "")
+            if text == seen:
+                continue
+            if seen and not text.startswith(seen):
+                # The policy is not supposed to revise committed tokens. If it
+                # does, never re-emit what was already forwarded: emit only the
+                # part beyond the common prefix and count the revision.
+                common = _common_prefix_len(seen, text)
+                session.revisions += 1
+                logger.warning(
+                    "WhisperLiveKit revised committed text on line %d (%d so far): %r -> %r",
+                    index, session.revisions, seen[-40:], text[-40:],
                 )
-
-            await self._put(
-                session,
-                Event(
-                    event_type=EventType.ASR_STABLE,
-                    sequence_id=session.next_sequence(),
-                    payload={
-                        "segment": {
-                            "text": text,
-                            "start": start,
-                            "end": end,
-                            "speaker": speaker,
-                            "language": detected,
-                        }
-                    },
-                ),
-            )
+                delta = text[common:].strip()
+            else:
+                delta = text[len(seen):].strip()
+            session.forwarded[index] = text
+            if not delta:
+                continue
+            start = fields["start"] if not seen else session.committed_end
+            end = fields["end"]
+            if end <= session.committed_end + 1e-6:
+                # Same end time as the last delta (a trailing punctuation mark
+                # attached to the final token). The stabiliser keys on end
+                # time, so nudge it forward rather than lose the terminator
+                # the segmenter needs.
+                end = session.committed_end + 1e-3
+            await self._commit(session, delta, start, end, fields)
 
         partial = (getattr(front, "buffer_transcription", "") or "").strip()
         if partial != session.last_partial:
@@ -302,9 +323,45 @@ class WhisperLiveKitASREngine(ASREngine):
                 Event(
                     event_type=EventType.ASR_PARTIAL,
                     sequence_id=session.next_sequence(),
-                    payload={"text": partial, "start": session.committed_end, "end": session.committed_end},
+                    payload={
+                        "text": partial,
+                        "start": session.committed_end,
+                        "end": session.committed_end,
+                    },
                 ),
             )
+
+    async def _commit(
+        self, session: _Session, text: str, start: float, end: float, fields: dict[str, Any]
+    ) -> None:
+        session.committed_end = end
+        detected = fields["language"]
+        if detected and detected != session.announced_language:
+            session.announced_language = detected
+            await self._put(
+                session,
+                Event(
+                    event_type=EventType.LANGUAGE_DETECTED,
+                    sequence_id=session.next_sequence(),
+                    payload={"language": detected, "confidence": None},
+                ),
+            )
+        await self._put(
+            session,
+            Event(
+                event_type=EventType.ASR_STABLE,
+                sequence_id=session.next_sequence(),
+                payload={
+                    "segment": {
+                        "text": text,
+                        "start": start,
+                        "end": end,
+                        "speaker": fields["speaker"],
+                        "language": detected,
+                    }
+                },
+            ),
+        )
 
     async def _put(self, session: _Session, event: Event | None) -> None:
         try:
@@ -334,6 +391,40 @@ class WhisperLiveKitASREngine(ASREngine):
             if event is None:
                 return
             yield event
+
+
+def _is_silence(line: Any) -> bool:
+    """WhisperLiveKit marks silence segments with speaker -2 (``timed_objects.py``)."""
+    speaker = getattr(line, "speaker", None)
+    try:
+        return speaker is not None and int(speaker) == -2
+    except (TypeError, ValueError):
+        return False
+
+
+def _common_prefix_len(a: str, b: str) -> int:
+    n = 0
+    for x, y in zip(a, b, strict=False):
+        if x != y:
+            break
+        n += 1
+    return n
+
+
+def _line_fields(line: Any) -> dict[str, Any]:
+    speaker = getattr(line, "speaker", None)
+    # -1 means "no diarization"; only non-negative ids are real speakers.
+    try:
+        speaker = int(speaker) if speaker is not None and int(speaker) >= 0 else None
+    except (TypeError, ValueError):
+        speaker = None
+    return {
+        "text": (getattr(line, "text", "") or "").strip(),
+        "start": float(getattr(line, "start", 0.0) or 0.0),
+        "end": float(getattr(line, "end", 0.0) or 0.0),
+        "speaker": speaker,
+        "language": getattr(line, "detected_language", None),
+    }
 
 
 asr_registry.register("whisperlivekit", WhisperLiveKitASREngine)

@@ -44,6 +44,42 @@ excludes it. That is why the error persists after an apparently successful
 install. Check with `python -c "import whisperlivekit"`; use Python 3.11–3.13
 for real ASR. Core and mock mode work on 3.14.
 
+Also check *which* interpreter runs the gateway. `voicebridge-gateway` on
+`PATH` may belong to a different Python than the venv you installed into;
+`head -1 $(which voicebridge-gateway)` shows its interpreter. Running
+`python -m voicebridge.apps.gateway.main` from the venv removes the doubt.
+A CPU-only install that avoids the multi-gigabyte CUDA wheels:
+
+```bash
+uv pip install --python .venv/bin/python \
+  --index https://download.pytorch.org/whl/cpu \
+  -e '.[asr-whisperlivekit,translation-local,tts-piper]'
+```
+
+**Live providers configured, but the first session shows nothing for a minute
+and then the extension reconnects**
+Model download and load used to happen inside the first session's WebSocket.
+The gateway now warms every configured provider at startup and logs
+`provider warmup finished in N s`; `/ready` answers only after that. Give
+OPUS-MT the pairs you use (`preload_pairs: [[ja, en]]`) so its ~300 MB
+checkpoints are fetched then too. If a Whisper checkpoint download is
+interrupted, WhisperLiveKit reports `SHA256 checksum does not match` on the
+next start: delete `~/.cache/whisper/<model>.pt` and restart.
+
+**Subtitles lag further and further behind (CPU)**
+WhisperLiveKit's default `simulstreaming` policy runs a PyTorch decoder as
+well as the faster-whisper encoder; on CPU it fell 24–60 s behind with
+`small`. Set `backend_policy: localagreement` and `model: base` for a
+CPU-only box, or use a GPU. `/v1/sessions/{id}` will not show this lag — the
+audio queue stays empty because WhisperLiveKit buffers internally — so watch
+the gateway log's `lag=` lines.
+
+**The demo page shows English sentences I never said**
+That is mock mode (the page says so in a banner): the mock ASR ignores audio
+and replays a fixed script. Nothing is recognised or translated until the
+providers in `config/voicebridge.yaml` are switched to real ones. Check
+`curl localhost:8000/health` — `"mock_mode": true` means exactly this.
+
 **`NLLB-200 weights are licensed CC-BY-NC-4.0`**
 Working as intended. Either acknowledge it
 (`acknowledge_non_commercial: true`) or use `opus_mt` / `indictrans2`, which are

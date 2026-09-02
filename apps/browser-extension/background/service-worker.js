@@ -20,6 +20,18 @@ const state = {
   metrics: {},
 };
 
+// MV3 terminates this worker after ~30 s without events and starts a fresh
+// one on the next message. The offscreen document (capture + socket) survives
+// that, so the worker must recover `capturing`/`tabId` from storage or every
+// subsequent 'subtitle' message is dropped for want of a tab to send it to,
+// and the popup reports "idle" while audio is still streaming.
+const restored = chrome.storage.local.get(['capturing', 'tabId']).then((stored) => {
+  if (stored.capturing && stored.tabId != null) {
+    state.capturing = true;
+    state.tabId = stored.tabId;
+  }
+}).catch(() => {});
+
 // ------------------------------------------------------------------ settings
 
 async function getSettings() {
@@ -141,6 +153,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   (async () => {
     try {
+      await restored;
       switch (message.type) {
         case 'capture:start': {
           const tab = message.tabId
@@ -197,7 +210,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           state.language = message.language;
           break;
         case 'subtitle':
-          if (state.tabId != null) tell(state.tabId, { type: 'overlay:subtitle', ...message });
+          // Spread FIRST. `message` still carries `type: 'subtitle'` (that is
+          // what this case matched on), so spreading it after the key would
+          // overwrite the overlay message name and the content script's switch
+          // would fall through to default -- silently rendering nothing.
+          if (state.tabId != null) tell(state.tabId, { ...message, type: 'overlay:subtitle' });
           break;
         case 'backend:warning':
           state.lastWarning = message.message;
@@ -232,6 +249,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  await restored;
   if (tabId === state.tabId) await stopCapture();
 });
 

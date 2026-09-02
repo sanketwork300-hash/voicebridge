@@ -37,16 +37,23 @@ providers:
   #
   # asr:
   #   provider: whisperlivekit
-  #   model: large-v3-turbo      # 'small' or 'base' on CPU
+  #   model: large-v3-turbo      # GPU. On CPU use 'base' (verified) or 'small'
+  #   backend_policy: localagreement   # CPU: faster-whisper/CTranslate2 path.
+  #                                    # 'simulstreaming' (WhisperLiveKit's
+  #                                    # default) adds a PyTorch decoder and
+  #                                    # ran 2-3x slower than real time on a
+  #                                    # 16-core CPU here.
   #   vac: true                  # voice activity controller
   #   min_chunk_size: 0.5
   # translation:
   #   provider: opus_mt
   #   num_beams: 2
+  #   preload_pairs: [[ja, en], [ko, en]]   # download+load at startup, not in
+  #                                          # the first session (~300 MB each)
   # tts:
   #   provider: piper
   #   voices:
-  #     en: /models/piper/en_US-amy-medium.onnx
+  #     en: /models/piper/en_US-lessac-medium.onnx   # check each voice's licence
 
   # -------------------------------------------------------------- live: Indic
   # English -> Hindi/Marathi/Tamil. IndicTrans2 checkpoints are MIT-licensed.

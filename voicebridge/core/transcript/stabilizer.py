@@ -148,9 +148,17 @@ def _join(existing: str, addition: str) -> str:
         return addition
     if existing.endswith((" ", "\n")):
         return addition
+    # A streaming backend can commit a sentence terminator on its own after
+    # the word it belongs to; "before ." would change tokenisation downstream.
+    if addition[0] in _CLOSING_PUNCTUATION:
+        return addition
     if _is_cjk(existing[-1]) or _is_cjk(addition[0]):
         return addition
     return " " + addition
+
+
+#: Marks that attach to the preceding word without a space.
+_CLOSING_PUNCTUATION = ".,!?;:)]}%'\"、。！？」』）"
 
 
 def _is_cjk(ch: str) -> bool:

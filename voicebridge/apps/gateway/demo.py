@@ -50,6 +50,9 @@ DEMO_HTML = r"""<!doctype html>
   #log { margin-top:14px; font:12px ui-monospace,monospace; color:var(--dim);
          max-height:130px; overflow:auto; white-space:pre-wrap; }
   .err { color:var(--err); } .warn { color:var(--warn); }
+  .notice { margin-bottom:14px; padding:12px 14px; border-radius:10px; font-size:13px;
+            background:rgba(255,180,84,.12); border:1px solid var(--warn); color:var(--fg); }
+  .notice code { font:12px ui-monospace,monospace; }
 </style>
 </head>
 <body>
@@ -95,6 +98,7 @@ DEMO_HTML = r"""<!doctype html>
     <span>Detected: <b id="det">—</b></span>
   </div>
 
+  <div id="notice" class="notice" hidden></div>
   <div id="subs"><div class="meta">Press “Start translation” and allow microphone access.</div></div>
   <div id="log"></div>
 </main>
@@ -111,6 +115,16 @@ function dot(id,on,err){ const e=$(id); e.className='dot'+(err?' err':(on?' on':
 
 fetch('/health').then(r=>r.json()).then(h=>{
   $('mode').textContent = h.mock_mode ? 'mock mode' : 'live models';
+  if (h.mock_mode) {
+    $('notice').hidden = false;
+    $('notice').innerHTML =
+      '<b>Mock mode.</b> The gateway is running with <code>provider: mock</code> for ASR, ' +
+      'translation and TTS, so nothing you say is recognised: the transcript below is a ' +
+      'fixed demo script replayed against the audio clock, and the translation is a ' +
+      'phrase table. This proves the capture → WebSocket → pipeline → subtitle path only. ' +
+      'For real translation install the model extras and switch the providers in ' +
+      '<code>config/voicebridge.yaml</code> (see README, “Going live”).';
+  }
 }).catch(()=>{ $('mode').textContent='gateway unreachable'; });
 
 async function start(){
