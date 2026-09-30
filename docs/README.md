@@ -39,8 +39,11 @@ demo.
    assert the opposite of what was said. See
    [architecture.md](architecture.md#language-aware-segmentation).
 
-## No published numbers
+## Measured results
 
-This project publishes no latency or quality benchmarks yet. The harness exists
-(`benchmarks/run_benchmark.py`); it has not been run on a stated evaluation set
-and reference hardware. See [performance.md](performance.md).
+[evaluation.md](evaluation.md) records every measurement made so far: ASR and
+hallucination filtering, translation quality with and without context, TTS,
+end-to-end file jobs, live latency, and the cascade-vs-Seamless comparison. All
+of it is from one CPU-only development machine; GPU behaviour and the design
+latency targets remain unmeasured. The tooling is `python -m voicebridge.benchmark`
+(the older `benchmarks/run_benchmark.py` harness is still present).

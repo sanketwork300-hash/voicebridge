@@ -1,0 +1,60 @@
+# Meta SeamlessStreaming as the translation engine (direct speech-to-speech).
+#
+#   VOICEBRIDGE_CONFIG=config/examples/seamless-cpu.yaml voicebridge-gateway
+#
+# LICENCE: the Seamless model weights are CC-BY-NC-4.0 (non-commercial).
+# `enabled: true` below is your acknowledgement; review the licence before any
+# commercial deployment. Weights are not downloaded automatically:
+#   hf download facebook/seamless-streaming --include "*.pt" --include "*.model"
+#
+# No cascade model (Whisper, LLM, TTS) is loaded in this configuration: the
+# mock entries below are never used by seamless sessions or jobs, and
+# `warmup: []` loads nothing at startup.
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+pipeline:
+  mode: seamless_streaming         # default engine for sessions and file jobs
+
+runtime:
+  device: auto
+  dtype: auto
+  warmup: []
+
+providers:
+  asr: {provider: mock}
+  translation: {provider: mock}
+  tts: {provider: mock}
+
+  s2st:
+    seamless_streaming:
+      enabled: true                # CC-BY-NC-4.0 acknowledged
+      model: facebook/seamless-streaming   # HF repo whose local snapshot is used
+      device: auto                 # auto | cpu | cuda:0
+      dtype: auto                  # fp16 on CUDA, fp32 on CPU
+      segment_ms: 320              # audio pushed to the agent per step
+      decision_threshold: 0.5      # monotonic decoder emit threshold
+      threads: 0                   # torch CPU threads (0 = library default)
+      idle_unload_seconds: 600     # stop the worker after idling (frees ~10 GB)
+    seamless_m4t_v2:
+      enabled: true                # CC-BY-NC-4.0 acknowledged
+      model: facebook/seamless-m4t-v2-large
+
+  speech_gate:                     # used only by seamless_m4t_v2 (offline) to pick regions
+    enabled: true
+    vad: silero
+    event_classifier: ast
+
+media:
+  max_file_size_mb: 2048
+  retention_hours: 72
+
+storage:
+  backend: local
+  root: storage
+
+languages:
+  source: [ja, ko, en]
+  target: [en, hi]

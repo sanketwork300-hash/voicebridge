@@ -87,6 +87,8 @@ def apply_policy(
     ``NATURAL_ENGLISH``, when no honorific was present in the source, or when
     the source is ambiguous (more than one distinct honorific).
     """
+    if policy is HonorificPolicy.REMOVE:
+        return strip_honorific_suffixes(translated_text)
     if policy is not HonorificPolicy.PRESERVE_HONORIFICS:
         return translated_text
     if not source_text or not translated_text:
@@ -107,3 +109,36 @@ def apply_policy(
         return f"{name}{suffix}"
 
     return _TITLE_RE.sub(_replace, translated_text)
+
+
+_SUFFIX_RE = re.compile(
+    r"(?<=[A-Za-z])-(?:"
+    + "|".join(sorted({v[1:] for v in {**JA_HONORIFICS, **KO_HONORIFICS}.values()}, key=len, reverse=True))
+    + r")\b"
+)
+
+
+def strip_honorific_suffixes(text: str) -> str:
+    """``REMOVE`` policy: "Tanaka-san" -> "Tanaka". Titles are left alone."""
+    return _SUFFIX_RE.sub("", text)
+
+
+def policy_instruction(policy: HonorificPolicy, source_language: str | None) -> str:
+    """How an instruction-following translator should treat honorifics.
+
+    Used by the contextual (LLM) provider, which receives the policy as a
+    constraint instead of having its output rewritten afterwards.
+    """
+    if policy is HonorificPolicy.PRESERVE_HONORIFICS:
+        table = KO_HONORIFICS if (source_language or "").startswith("ko") else JA_HONORIFICS
+        examples = ", ".join(sorted(set(table.values())))
+        return (
+            "Keep honorifics attached to names in romanized form "
+            f"({examples}), e.g. 'Tanaka-san', instead of replacing them with Mr./Ms."
+        )
+    if policy is HonorificPolicy.REMOVE:
+        return "Drop honorific suffixes and titles; use bare names."
+    return (
+        "Render honorifics naturally in the target language (e.g. Mr./Ms./teacher, "
+        "or nothing) while keeping the politeness level and relationship they imply."
+    )

@@ -1,0 +1,14 @@
+{
+ "version": "ja_short-v1",
+ "items": [
+  {
+   "id": "ja_short",
+   "audio": "../data/media/ja_short.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "多くの場合、海外のギャップイヤーコースに入学することで、帰国後に実際に大学に進学しやすくなります。",
+   "reference_translation": "In many cases, enrolling on a gap-year course abroad can actually improve your chances of moving into higher education back in your home country.",
+   "category": "speech+music"
+  }
+ ]
+}

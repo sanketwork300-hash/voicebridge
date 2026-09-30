@@ -57,11 +57,32 @@ class AppConfig:
             "tts": {"provider": "mock"},
         }
     )
+    pipeline: dict[str, Any] = field(default_factory=lambda: {"mode": "cascade"})
+    media: dict[str, Any] = field(
+        default_factory=lambda: {
+            "max_file_size_mb": 2048,
+            "output_video": "mp4",
+            "subtitles": True,
+        }
+    )
+    storage: dict[str, Any] = field(default_factory=lambda: {"backend": "local", "root": "storage"})
+    runtime: dict[str, Any] = field(default_factory=lambda: {"device": "auto", "dtype": "auto"})
     #: Presented at GET /v1/languages.
     languages: dict[str, Any] = field(default_factory=dict)
+    #: The whole parsed YAML, for sections only some components read
+    #: (``glossary``, ``honorific_policy``, ``models``, ``runtime_profiles``).
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def default_engine(self) -> str:
+        """Engine used when a session or file job does not name one."""
+        mode = str((self.pipeline or {}).get("mode", "cascade"))
+        return mode if mode in ("cascade", "seamless_streaming", "seamless_m4t_v2") else "cascade"
 
     @property
     def mock_mode(self) -> bool:
+        if self.default_engine != "cascade":
+            return False
         return all(
             (self.providers.get(kind) or {}).get("provider", "mock") == "mock"
             for kind in ("asr", "translation", "tts")
@@ -125,8 +146,18 @@ def load_config(path: str | None = None) -> AppConfig:
             require_auth_for_localhost=bool(security.get("require_auth_for_localhost", False)),
         ),
         providers=providers or AppConfig().providers,
+        pipeline=data.get("pipeline") or AppConfig().pipeline,
+        media=data.get("media") or AppConfig().media,
+        storage=data.get("storage") or AppConfig().storage,
+        runtime=data.get("runtime") or AppConfig().runtime,
         languages=data.get("languages") or {},
+        raw=data,
     )
+    # A runtime profile (cpu / gpu_8gb / ...) supplies runtime defaults.
+    profile_name = os.environ.get("VOICEBRIDGE_RUNTIME_PROFILE") or config.runtime.get("profile")
+    profile = (data.get("runtime_profiles") or {}).get(profile_name or "", {})
+    for key, value in profile.items():
+        config.runtime.setdefault(key, value)
 
     # Environment overrides for the provider choice make Docker profiles simple.
     for kind in ("asr", "translation", "tts"):

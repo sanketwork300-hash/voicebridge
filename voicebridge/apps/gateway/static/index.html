@@ -1,0 +1,758 @@
+<!doctype html>
+<!--
+  VoiceBridge web UI. One self-contained file: no build step, no external assets.
+
+  Designed against Jakob Nielsen's ten usability heuristics:
+   1 Visibility of system status   status pill, mic level meter, per-stage progress with ETA, toasts
+   2 Match with the real world     plain words ("Translate file", "Original speaker"), no model jargon up front
+   3 User control and freedom      Stop / Cancel / Remove file / Clear / Delete job, nothing is a dead end
+   4 Consistency and standards     one button style per role, same engine picker in both views
+   5 Error prevention              file checked before upload, Start disabled with the reason shown,
+                                   two-step confirm for cancel and delete, unavailable engines explained
+   6 Recognition over recall       choices are visible, last settings are remembered, recent jobs listed
+   7 Flexibility and efficiency    drag and drop, keyboard shortcuts, advanced options folded away
+   8 Aesthetic and minimalist      one accent colour, details on demand
+   9 Help users recover            every error says what happened and what to do next
+  10 Help and documentation        Help view, inline hints, "?" shortcut
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VoiceBridge</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0b0d12; --surface:#12151c; --raised:#181c25; --line:#232834; --line-strong:#323949;
+    --text:#e9ecf3; --muted:#98a1b3; --faint:#6b7486;
+    --accent:#6c8cff; --accent-ink:#0a0f24; --accent-soft:rgba(108,140,255,.13);
+    --ok:#3fcf8e; --warn:#f2b155; --bad:#ff6f6f; --bad-soft:rgba(255,111,111,.12);
+    --warn-soft:rgba(242,177,85,.12); --ok-soft:rgba(63,207,142,.12);
+    --radius:12px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { color-scheme: light;
+      --bg:#f5f6fa; --surface:#ffffff; --raised:#f0f2f7; --line:#e1e5ee; --line-strong:#c9cfdc;
+      --text:#141824; --muted:#566074; --faint:#8790a3;
+      --accent:#3d5eea; --accent-ink:#ffffff; --accent-soft:rgba(61,94,234,.09);
+      --ok:#15935a; --warn:#a96a00; --bad:#c93535; }
+  }
+  :root[data-theme="light"] { color-scheme: light;
+    --bg:#f5f6fa; --surface:#ffffff; --raised:#f0f2f7; --line:#e1e5ee; --line-strong:#c9cfdc;
+    --text:#141824; --muted:#566074; --faint:#8790a3;
+    --accent:#3d5eea; --accent-ink:#ffffff; --accent-soft:rgba(61,94,234,.09);
+    --ok:#15935a; --warn:#a96a00; --bad:#c93535; }
+
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  button, select, input { font:inherit; color:inherit; }
+  [hidden] { display:none !important; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+
+  /* ---- shell ---- */
+  .app { display:grid; grid-template-columns:232px minmax(0,1fr); min-height:100%; }
+  .side { border-right:1px solid var(--line); padding:22px 14px; display:flex; flex-direction:column;
+          gap:22px; position:sticky; top:0; height:100vh; }
+  .brand { display:flex; align-items:center; gap:10px; padding:0 8px; font-weight:650; font-size:16px; }
+  .brand svg { color:var(--accent); }
+  .nav { display:flex; flex-direction:column; gap:2px; }
+  .nav button { all:unset; cursor:pointer; display:flex; align-items:center; gap:10px; padding:9px 10px;
+                border-radius:9px; color:var(--muted); font-weight:550; }
+  .nav button:hover { background:var(--raised); color:var(--text); }
+  .nav button[aria-selected="true"] { background:var(--accent-soft); color:var(--text); }
+  .nav button[aria-selected="true"] svg { color:var(--accent); }
+  .nav kbd { margin-left:auto; }
+  .side-foot { margin-top:auto; display:flex; flex-direction:column; gap:10px; padding:0 8px;
+               font-size:12.5px; color:var(--faint); }
+  kbd { font:11px var(--mono); padding:1px 6px; border:1px solid var(--line-strong); border-radius:5px;
+        color:var(--faint); }
+  main { padding:30px clamp(16px,4vw,44px) 64px; max-width:1040px; width:100%; }
+  h1 { font-size:24px; line-height:1.2; margin:0 0 4px; letter-spacing:-.015em; }
+  .lede { color:var(--muted); margin:0 0 22px; max-width:62ch; }
+  h2 { font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--faint);
+       margin:0 0 10px; font-weight:650; }
+  @media (max-width:820px) {
+    .app { grid-template-columns:1fr; }
+    .side { position:static; height:auto; flex-direction:row; align-items:center; gap:10px;
+            padding:10px 12px; border-right:0; border-bottom:1px solid var(--line); overflow-x:auto; }
+    .nav { flex-direction:row; } .nav kbd, .side-foot, .brand span { display:none; }
+    .nav button { padding:8px 10px; white-space:nowrap; }
+  }
+
+  /* ---- status pill, banners, toasts ---- */
+  .pill { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; padding:4px 10px;
+          border-radius:99px; border:1px solid var(--line); color:var(--muted); white-space:nowrap; }
+  .pill i { width:7px; height:7px; border-radius:50%; background:var(--faint); flex:none; }
+  .pill.ok i { background:var(--ok); } .pill.warn i { background:var(--warn); } .pill.bad i { background:var(--bad); }
+  .banner { display:flex; gap:12px; padding:12px 14px; border-radius:var(--radius); margin-bottom:18px;
+            border:1px solid var(--line); background:var(--surface); font-size:14px; }
+  .banner.warn { background:var(--warn-soft); border-color:transparent; }
+  .banner.bad { background:var(--bad-soft); border-color:transparent; }
+  .banner b { display:block; }
+  .banner .actions { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; }
+  #toasts { position:fixed; right:18px; bottom:18px; display:flex; flex-direction:column; gap:8px; z-index:20; }
+  .toast { background:var(--raised); border:1px solid var(--line-strong); padding:10px 14px;
+           border-radius:10px; font-size:14px; max-width:340px; box-shadow:0 8px 28px rgba(0,0,0,.28); }
+  .toast.bad { border-color:var(--bad); }
+
+  /* ---- controls ---- */
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+          padding:18px; margin-bottom:16px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+  .field label, .lbl { display:block; font-size:12.5px; color:var(--muted); margin-bottom:5px; font-weight:550; }
+  .field small, .hint { display:block; font-size:12.5px; color:var(--faint); margin-top:5px; }
+  select { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line-strong);
+           background:var(--raised); }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+         padding:9px 15px; border-radius:9px; border:1px solid var(--line-strong); background:var(--raised);
+         font-weight:600; text-decoration:none; color:var(--text); }
+  .btn:hover { border-color:var(--faint); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .btn.primary:hover { filter:brightness(1.07); }
+  .btn.danger { color:var(--bad); }
+  .btn.ghost { background:transparent; border-color:transparent; color:var(--muted); padding:7px 9px; }
+  .btn.ghost:hover { background:var(--raised); color:var(--text); }
+  .btn.big { padding:12px 22px; font-size:16px; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; filter:none; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .spacer { flex:1; }
+  details.adv { border-top:1px solid var(--line); margin-top:16px; padding-top:12px; }
+  details.adv > summary { cursor:pointer; color:var(--muted); font-weight:550; font-size:14px; list-style:none; }
+  details.adv > summary::before { content:"+ "; font-family:var(--mono); }
+  details.adv[open] > summary::before { content:"− "; }
+  details.adv > .grid, details.adv > .checks { margin-top:14px; }
+  .checks { display:flex; flex-wrap:wrap; gap:8px 20px; font-size:14px; }
+  .checks label { display:flex; gap:8px; align-items:center; cursor:pointer; }
+  .langs { display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:end; }
+  .langs .btn { padding:9px 10px; }
+
+  /* ---- engine picker ---- */
+  .engines { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); }
+  .engine { position:relative; display:block; padding:13px 14px; border:1px solid var(--line-strong);
+            border-radius:11px; cursor:pointer; background:var(--raised); }
+  .engine input { position:absolute; opacity:0; pointer-events:none; }
+  .engine b { display:block; }
+  .engine span { display:block; font-size:13px; color:var(--muted); }
+  .engine .lic { color:var(--warn); margin-top:6px; }
+  .engine:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+  .engine:has(input:focus-visible) { outline:2px solid var(--accent); outline-offset:2px; }
+  .engine.off { cursor:not-allowed; opacity:.6; }
+
+  /* ---- live ---- */
+  .livebar { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  .meter { width:120px; height:8px; border-radius:99px; background:var(--raised); overflow:hidden;
+           border:1px solid var(--line); }
+  .meter i { display:block; height:100%; width:0; background:var(--ok); transition:width .08s linear; }
+  .stats { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  #transcript { min-height:260px; max-height:52vh; overflow:auto; scroll-behavior:smooth; }
+  .empty { color:var(--faint); text-align:center; padding:54px 16px; }
+  .empty b { display:block; color:var(--muted); font-size:16px; margin-bottom:4px; }
+  .utt { padding:12px 2px; border-bottom:1px solid var(--line); }
+  .utt:last-child { border-bottom:0; }
+  .utt .src { color:var(--muted); font-size:14px; }
+  .utt .tgt { font-size:18px; line-height:1.4; margin-top:2px; }
+  .utt .meta { font:11.5px var(--mono); color:var(--faint); margin-top:4px; }
+  .hearing { padding:12px 2px; color:var(--muted); }
+  .hearing em { color:var(--faint); }
+  .hearing::before { content:"Hearing  "; font-size:11px; letter-spacing:.07em; text-transform:uppercase;
+                     color:var(--accent); font-weight:650; }
+
+  /* ---- file ---- */
+  .drop { border:1.5px dashed var(--line-strong); border-radius:var(--radius); padding:34px 18px;
+          text-align:center; cursor:pointer; background:var(--surface); transition:border-color .15s, background .15s; }
+  .drop:hover, .drop.over { border-color:var(--accent); background:var(--accent-soft); }
+  .drop b { display:block; font-size:16px; }
+  .drop span { color:var(--muted); font-size:13.5px; }
+  .filechip { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid var(--line-strong);
+              border-radius:11px; background:var(--raised); }
+  .filechip .name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .filechip .sub { font-size:12.5px; color:var(--muted); }
+  .overall { height:8px; border-radius:99px; background:var(--raised); overflow:hidden; margin:12px 0 16px; }
+  .overall i { display:block; height:100%; width:0; background:var(--accent); transition:width .4s; }
+  .stages { list-style:none; margin:0; padding:0; display:grid; gap:7px; }
+  .stages li { display:flex; align-items:center; gap:10px; color:var(--faint); font-size:14.5px; }
+  .stages li .tick { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--line-strong);
+                     display:grid; place-items:center; font-size:11px; flex:none; }
+  .stages li.now { color:var(--text); font-weight:600; }
+  .stages li.now .tick { border-color:var(--accent); border-top-color:transparent; animation:spin .9s linear infinite; }
+  .stages li.done { color:var(--muted); }
+  .stages li.done .tick { background:var(--ok); border-color:var(--ok); color:#04130c; }
+  .stages li .pct { margin-left:auto; font:12px var(--mono); color:var(--faint); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .downloads { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); margin:6px 0 16px; }
+  .downloads a { display:block; padding:12px 14px; border-radius:11px; border:1px solid var(--line-strong);
+                 background:var(--raised); text-decoration:none; color:var(--text); }
+  .downloads a:hover { border-color:var(--accent); }
+  .downloads a b { display:block; } .downloads a span { font:12px var(--mono); color:var(--faint); }
+  table { border-collapse:collapse; width:100%; font-size:13.5px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--faint); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  td.t { font:12px var(--mono); color:var(--faint); white-space:nowrap; }
+  .scroll { overflow-x:auto; }
+  .jobs { display:grid; gap:8px; }
+  .job { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--line);
+         border-radius:10px; }
+  .job .name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .job .sub { font-size:12.5px; color:var(--faint); }
+  .log { font:12px/1.6 var(--mono); color:var(--muted); max-height:180px; overflow:auto; margin-top:10px;
+         white-space:pre-wrap; }
+  .help dt { font-weight:650; margin-top:14px; } .help dd { margin:4px 0 0; color:var(--muted); }
+  code { font:13px var(--mono); background:var(--raised); padding:1px 6px; border-radius:6px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 12h2M7 7v10M11 4v16M15 8v8M19 10v4"/></svg>
+      <span>VoiceBridge</span>
+    </div>
+    <nav class="nav" role="tablist" aria-label="Views">
+      <button role="tab" data-view="live" aria-selected="true">Live <kbd>1</kbd></button>
+      <button role="tab" data-view="file" aria-selected="false">Translate file <kbd>2</kbd></button>
+      <button role="tab" data-view="compare" aria-selected="false">Compare <kbd>3</kbd></button>
+      <button role="tab" data-view="help" aria-selected="false">Help <kbd>?</kbd></button>
+    </nav>
+    <div class="side-foot">
+      <span class="pill" id="sys"><i></i><span id="sys-text">Connecting…</span></span>
+      <button class="btn ghost" id="theme" style="justify-content:flex-start;padding-left:0">Switch theme</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="global-banner"></div>
+
+    <!-- ================================ LIVE ================================ -->
+    <section id="view-live" role="tabpanel">
+      <h1>Live translation</h1>
+      <p class="lede">Speak into your microphone and read or hear the translation as you go.</p>
+
+      <div class="card">
+        <div class="langs">
+          <div class="field"><label for="l-src">Spoken language</label><select id="l-src"></select></div>
+          <button class="btn" id="l-swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+          <div class="field"><label for="l-tgt">Translate to</label><select id="l-tgt"></select></div>
+        </div>
+        <div style="margin-top:16px"><span class="lbl">Translation engine</span>
+          <div class="engines" id="l-engines"></div></div>
+        <details class="adv">
+          <summary>More options</summary>
+          <div class="grid">
+            <div class="field"><label for="l-out">Output</label>
+              <select id="l-out"><option value="speech_and_subtitles">Text and speech</option>
+                <option value="subtitles">Text only</option><option value="speech">Speech only</option></select></div>
+            <div class="field"><label for="l-q">Translation quality</label><select id="l-q"></select>
+              <small>Fast keeps up better on slow machines.</small></div>
+            <div class="field"><label for="l-pf">Timing</label>
+              <select id="l-pf"><option value="balanced">Balanced</option>
+                <option value="low_latency">Faster, may revise more</option>
+                <option value="accurate">Wait for full sentences</option></select></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="livebar">
+          <button class="btn primary big" id="l-go">Start listening</button>
+          <div class="meter" title="Microphone level" aria-hidden="true"><i id="l-meter"></i></div>
+          <span class="hint" id="l-state" style="margin:0" aria-live="polite">Not listening.</span>
+          <span class="spacer"></span>
+          <button class="btn ghost" id="l-copy" disabled>Copy</button>
+          <button class="btn ghost" id="l-save" disabled>Save .txt</button>
+          <button class="btn ghost" id="l-clear" disabled>Clear</button>
+        </div>
+        <div class="stats">
+          <span class="pill" id="p-conn"><i></i>Server</span>
+          <span class="pill" id="p-mic"><i></i>Microphone</span>
+          <span class="pill" id="p-tr"><i></i>Translating</span>
+          <span class="pill">Delay <b id="l-delay" style="color:var(--text)">—</b></span>
+          <span class="pill">Detected <b id="l-det" style="color:var(--text)">—</b></span>
+          <span class="pill" id="p-skip" hidden>Skipped non-speech <b id="l-skip" style="color:var(--text)">0</b></span>
+        </div>
+      </div>
+
+      <div id="l-error"></div>
+      <div class="card" id="transcript" aria-live="polite">
+        <div class="empty" id="l-empty"><b>Nothing yet</b>Press “Start listening”, allow the microphone, and start speaking.</div>
+      </div>
+      <details class="adv" style="border:0;margin-top:0"><summary>Activity details</summary><div class="log" id="l-log"></div></details>
+    </section>
+
+    <!-- ================================ FILE ================================ -->
+    <section id="view-file" role="tabpanel" hidden>
+      <h1>Translate a file</h1>
+      <p class="lede">Upload audio or video and get translated speech, subtitles and a dubbed video back.</p>
+
+      <div id="f-setup">
+        <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file to translate">
+          <b>Drop a file here, or click to choose</b>
+          <span id="drop-hint">Audio or video</span>
+          <input type="file" id="f-input" hidden>
+        </div>
+        <div class="filechip" id="f-chip" hidden>
+          <div style="min-width:0;flex:1"><div class="name" id="f-name"></div><div class="sub" id="f-sub"></div></div>
+          <button class="btn ghost" id="f-remove">Remove</button>
+        </div>
+        <div id="f-file-error"></div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="langs">
+            <div class="field"><label for="f-src">Language in the file</label><select id="f-src"></select></div>
+            <button class="btn" id="f-swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+            <div class="field"><label for="f-tgt">Translate to</label><select id="f-tgt"></select></div>
+          </div>
+          <div style="margin-top:16px"><span class="lbl">Translation engine</span>
+            <div class="engines" id="f-engines"></div></div>
+          <div class="grid" style="margin-top:16px">
+            <div class="field"><label for="f-q">Translation quality</label><select id="f-q"></select></div>
+            <div class="field"><label for="f-voice">Voice</label><select id="f-voice"></select></div>
+          </div>
+          <details class="adv">
+            <summary>Output options</summary>
+            <div class="checks">
+              <label><input type="checkbox" id="o-dub" checked> Translated speech</label>
+              <label><input type="checkbox" id="o-sub" checked> Subtitles (SRT and VTT)</label>
+              <label><input type="checkbox" id="o-dual"> Show original under each subtitle</label>
+              <label class="video-only"><input type="checkbox" id="o-subvid"> Also a subtitled video with original audio</label>
+            </div>
+            <div class="grid">
+              <div class="field"><label for="f-fmt">Audio file format</label>
+                <select id="f-fmt"><option value="">WAV and MP3</option><option value="mp3">MP3</option>
+                  <option value="wav">WAV</option><option value="m4a">M4A</option></select></div>
+              <div class="field video-only"><label for="f-amode">Audio in the video</label>
+                <select id="f-amode"><option value="replace">Replace with translation</option>
+                  <option value="keep">Translation, original as second track</option>
+                  <option value="mix">Translation over quiet original</option></select></div>
+            </div>
+          </details>
+        </div>
+        <div class="row">
+          <button class="btn primary big" id="f-go" disabled>Translate</button>
+          <span class="hint" id="f-why" style="margin:0">Choose a file to start.</span>
+        </div>
+      </div>
+
+      <div class="card" id="f-progress" hidden>
+        <div class="row"><b id="fp-title">Translating…</b><span class="spacer"></span>
+          <span class="hint" id="fp-eta" style="margin:0" aria-live="polite"></span></div>
+        <div class="overall" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="fp-bar"><i></i></div>
+        <ul class="stages" id="fp-stages"></ul>
+        <div class="stats" id="fp-chips"></div>
+        <div class="row" style="margin-top:16px">
+          <button class="btn danger" id="fp-cancel">Cancel</button>
+          <span class="hint" style="margin:0">You can leave this page; the job keeps running and appears under Recent files.</span>
+        </div>
+        <details class="adv"><summary>Activity details</summary><div class="log" id="fp-log"></div></details>
+      </div>
+
+      <div id="f-error"></div>
+
+      <div class="card" id="f-result" hidden>
+        <div class="row"><b id="fr-title">Done</b><span class="spacer"></span>
+          <span class="hint" id="fr-meta" style="margin:0"></span></div>
+        <div class="downloads" id="fr-downloads"></div>
+        <h2>Preview</h2>
+        <div class="scroll"><table id="fr-preview"></table></div>
+        <div class="row" style="margin-top:16px"><button class="btn primary" id="fr-again">Translate another file</button></div>
+      </div>
+
+      <div style="margin-top:26px">
+        <div class="row"><h2 style="margin:0">Recent files</h2><span class="spacer"></span>
+          <button class="btn ghost" id="jobs-refresh">Refresh</button></div>
+        <div class="jobs" id="jobs" style="margin-top:10px"></div>
+      </div>
+    </section>
+
+    <!-- =============================== COMPARE =============================== -->
+    <section id="view-compare" role="tabpanel" hidden>
+      <h1>Compare models</h1>
+      <p class="lede">Measured results from benchmark runs on this server. Only real measurements are shown; no winner is declared.</p>
+      <div id="reports"></div>
+    </section>
+
+    <!-- ================================ HELP ================================ -->
+    <section id="view-help" role="tabpanel" hidden>
+      <h1>Help</h1>
+      <p class="lede">Short answers. The full guide is in the project README.</p>
+      <div class="card help"><dl>
+        <dt>Live translation</dt>
+        <dd>Pick the spoken language and the language to translate to, then press “Start listening”. The browser asks for microphone access once. Text appears first; speech follows if “Text and speech” is selected. To translate a browser tab instead of your microphone, use the VoiceBridge browser extension.</dd>
+        <dt>Translating a file</dt>
+        <dd>Drop an audio or video file, check the languages, press “Translate”. You get translated audio, subtitles, and for video a dubbed copy with the picture untouched. Long files take a while; you can close the page and come back to “Recent files”.</dd>
+        <dt>Which engine?</dt>
+        <dd><b>VoiceBridge Cascade</b> recognises speech, translates the text with context, then speaks it. It skips music, laughter and noise, and gives accurately timed subtitles. <b>Meta Seamless</b> translates speech to speech directly; its models are licensed for non-commercial use only and need a lot of memory.</dd>
+        <dt>Why was part of my audio not translated?</dt>
+        <dd>Music, sound effects, laughter and silence are skipped on purpose, and text the recogniser probably invented is dropped. “Activity details” lists what was skipped and why.</dd>
+        <dt>It says “mock mode”</dt>
+        <dd>The server is running without real models, so the output is a fixed demo script. Ask whoever runs the server to configure real providers.</dd>
+        <dt>Keyboard shortcuts</dt>
+        <dd><kbd>1</kbd> Live · <kbd>2</kbd> Translate file · <kbd>3</kbd> Compare · <kbd>?</kbd> Help · <kbd>Space</kbd> start or stop listening (Live view, when no control is focused)</dd>
+      </dl></div>
+    </section>
+  </main>
+</div>
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const TOKEN = new URLSearchParams(location.search).get('token');   // ?token=… when the server requires one
+const url = u => TOKEN ? u + (u.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN) : u;
+const api = (u, o) => fetch(url(u), o);
+const prefs = { get(k, d){ try { return localStorage.getItem('vb.'+k) ?? d; } catch { return d; } },
+                set(k, v){ try { localStorage.setItem('vb.'+k, v); } catch {} } };
+const LANG = {auto:'Detect automatically', ja:'Japanese', ko:'Korean', en:'English', hi:'Hindi', zh:'Chinese',
+              es:'Spanish', fr:'French', de:'German', pt:'Portuguese', ru:'Russian', it:'Italian'};
+const QUALITY = {fast:'Fast', balanced:'Balanced', high_quality:'High quality'};
+
+function toast(msg, bad){ const t=document.createElement('div'); t.className='toast'+(bad?' bad':''); t.textContent=msg;
+  $('toasts').appendChild(t); setTimeout(()=>t.remove(), bad ? 7000 : 3500); }
+function banner(host, kind, title, body, actions=[]){ const el=$(host); el.innerHTML='';
+  const b=document.createElement('div'); b.className='banner '+kind; b.setAttribute('role', kind==='bad'?'alert':'status');
+  b.innerHTML=`<div><b>${esc(title)}</b>${esc(body)}<div class="actions"></div></div>`;
+  for (const [label, fn, cls] of actions){ const btn=document.createElement('button'); btn.className='btn '+(cls||'');
+    btn.textContent=label; btn.onclick=fn; b.querySelector('.actions').appendChild(btn); }
+  el.appendChild(b); }
+function pill(id, state){ $(id).className='pill'+(state?' '+state:''); }
+function confirmTwice(btn, label, fn){            // two-step confirm without a modal dialog
+  if (btn.dataset.armed){ delete btn.dataset.armed; btn.textContent=btn.dataset.label; fn(); return; }
+  btn.dataset.label=btn.textContent; btn.dataset.armed='1'; btn.textContent=label;
+  setTimeout(()=>{ if(btn.dataset.armed){ delete btn.dataset.armed; btn.textContent=btn.dataset.label; } }, 4000); }
+const human = s => s==null ? '' : s<60 ? `about ${Math.max(5,Math.round(s/5)*5)} seconds left`
+  : s<3600 ? `about ${Math.round(s/60)} min left` : `about ${(s/3600).toFixed(1)} h left`;
+const bytes = n => n>=1<<30 ? (n/(1<<30)).toFixed(1)+' GB' : n>=1<<20 ? (n/(1<<20)).toFixed(1)+' MB' : Math.ceil(n/1024)+' KB';
+
+// ------------------------------------------------------------------ views
+const VIEWS=['live','file','compare','help'];
+function show(view){ for (const v of VIEWS) $('view-'+v).hidden = v!==view;
+  document.querySelectorAll('.nav button').forEach(b=>b.setAttribute('aria-selected', b.dataset.view===view));
+  prefs.set('view', view); history.replaceState(null, '', '#'+view); if (view==='compare') loadReports(); if (view==='file') loadJobs(); }
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>show(b.dataset.view));
+window.addEventListener('hashchange', ()=>{ const v=location.hash.slice(1); if (VIEWS.includes(v) && $('view-'+v).hidden) show(v); });
+document.addEventListener('keydown', e=>{
+  if (e.ctrlKey||e.metaKey||e.altKey) return;
+  const typing=/^(INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY)$/.test(document.activeElement?.tagName||'');
+  if (e.key==='?'){ show('help'); return; }
+  if (typing) return;
+  if (e.key==='1') show('live'); else if (e.key==='2') show('file'); else if (e.key==='3') show('compare');
+  else if (e.key===' ' && !$('view-live').hidden){ e.preventDefault(); $('l-go').click(); }
+});
+$('theme').onclick=()=>{ const cur=document.documentElement.dataset.theme
+    || (matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+  const next=cur==='light'?'dark':'light'; document.documentElement.dataset.theme=next; prefs.set('theme', next); };
+if (prefs.get('theme')) document.documentElement.dataset.theme=prefs.get('theme');
+
+// ------------------------------------------------------------ server state
+let ENGINES=[], LIMITS={max_file_size_mb:2048, audio_extensions:['.wav','.mp3','.m4a','.flac','.ogg'],
+                        video_extensions:['.mp4','.mkv','.mov','.webm']};
+function fillLangs(sel, codes, key, fallback){ sel.innerHTML=codes.map(c=>`<option value="${c}">${esc(LANG[c]||c)}</option>`).join('');
+  const want=prefs.get(key, fallback); sel.value=codes.includes(want)?want:codes[0]; sel.onchange=()=>prefs.set(key, sel.value); }
+function renderEngines(host, name, live){
+  const list=ENGINES.filter(e=>!live || e.id!=='seamless_m4t_v2');
+  const saved=prefs.get(name), ok=id=>list.find(e=>e.id===id && e.enabled);
+  const pick=(ok(saved)||ok(ENGINES.default)||list.find(e=>e.enabled)||list[0]||{}).id;
+  $(host).innerHTML=list.map(e=>`<label class="engine${e.enabled?'':' off'}">
+      <input type="radio" name="${name}" value="${e.id}" ${e.id===pick?'checked':''} ${e.enabled?'':'disabled'}>
+      <b>${esc(e.label)}</b><span>${esc(e.id==='cascade'?'Recognise, translate with context, then speak':e.description)}</span>
+      ${e.enabled?'':'<span>Not enabled on this server.</span>'}
+      ${e.license?`<span class="lic">Non-commercial licence (${esc(e.license.split(' ')[0])}). Needs a lot of memory.</span>`:''}</label>`).join('');
+  $(host).onchange=()=>prefs.set(name, picked(name)); }
+const picked = name => (document.querySelector(`input[name="${name}"]:checked`)||{}).value || 'cascade';
+
+async function boot(){
+  try {
+    const h=await (await api('/health')).json();
+    $('sys').className='pill '+(h.mock_mode?'warn':'ok');
+    $('sys-text').textContent=h.mock_mode?'Demo mode':'Ready';
+    if (h.mock_mode) banner('global-banner','warn','Demo mode. ',
+      'This server has no real models configured, so you will see a fixed demo script instead of a real translation.');
+  } catch { $('sys').className='pill bad'; $('sys-text').textContent='Server unreachable';
+    banner('global-banner','bad','Cannot reach the VoiceBridge server. ','Check that it is running, then reload this page.',
+           [['Reload', ()=>location.reload()]]); return; }
+  try {
+    const [eng, opt]=await Promise.all([api('/api/v1/models/engines').then(r=>r.json()), api('/api/v1/models/options').then(r=>r.json())]);
+    ENGINES=eng.engines; ENGINES.default=eng.default; if (opt.limits) LIMITS=opt.limits;
+    const src=(opt.languages&&opt.languages.source)||['auto','ja','ko','en'], tgt=(opt.languages&&opt.languages.target)||['en','hi'];
+    fillLangs($('l-src'), src.filter(c=>c!=='auto').concat(src.includes('auto')?['auto']:[]), 'l-src', 'ja');
+    fillLangs($('l-tgt'), tgt, 'l-tgt', 'en'); fillLangs($('f-src'), src, 'f-src', 'ja'); fillLangs($('f-tgt'), tgt, 'f-tgt', 'en');
+    const q='<option value="">Recommended</option>'+opt.translation_quality.map(x=>`<option value="${x.id}">${esc(QUALITY[x.id]||x.id)}</option>`).join('');
+    $('l-q').innerHTML=q; $('f-q').innerHTML=q; $('l-q').value=prefs.get('l-q',''); $('f-q').value=prefs.get('f-q','');
+    $('l-q').onchange=()=>prefs.set('l-q',$('l-q').value); $('f-q').onchange=()=>prefs.set('f-q',$('f-q').value);
+    $('f-voice').innerHTML=opt.voices.map(v=>`<option value="${esc(v)}">${v==='source'?'Original speaker’s voice':esc(v)}</option>`).join('');
+    renderEngines('l-engines','l-engine',true); renderEngines('f-engines','f-engine',false);
+    const exts=[...LIMITS.audio_extensions, ...LIMITS.video_extensions];
+    $('f-input').accept=exts.join(','); $('drop-hint').textContent=`${exts.map(e=>e.slice(1).toUpperCase()).join(', ')} · up to ${bytes(LIMITS.max_file_size_mb*1048576)}`;
+  } catch { toast('Could not load options from the server.', true); }
+  const hash=location.hash.slice(1);      // deep links: /#file, /#compare, /#help
+  show(VIEWS.includes(hash)?hash:VIEWS.includes(prefs.get('view'))?prefs.get('view'):'live');
+  const active=prefs.get('job'); if (active) reattach(active);
+}
+function swap(a, b){ const x=$(a), y=$(b); const has=(s,v)=>[...s.options].some(o=>o.value===v);
+  if (x.value!=='auto' && has(y, x.value) && has(x, y.value)){ const t=x.value; x.value=y.value; y.value=t; x.onchange(); y.onchange(); }
+  else toast('These two languages cannot be swapped on this server.'); }
+$('l-swap').onclick=()=>swap('l-src','l-tgt'); $('f-swap').onclick=()=>swap('f-src','f-tgt');
+
+// ------------------------------------------------------------------- live
+let ws=null, ctx=null, node=null, mic=null, sessionId=null, playAt=0, listening=false;
+let pending=[], pendingSince=0, partial='', hearingEl=null, utterances=[], skipped=0;
+const llog = (m)=>{ const d=document.createElement('div'); d.textContent=new Date().toLocaleTimeString()+'  '+m; $('l-log').prepend(d); };
+function liveState(text){ $('l-state').textContent=text; }
+function setListening(on){ listening=on; const b=$('l-go'); b.textContent=on?'Stop':'Start listening';
+  b.classList.toggle('primary', !on); b.classList.toggle('danger', on); b.disabled=false;
+  for (const id of ['l-src','l-tgt','l-out','l-q','l-pf','l-swap']) $(id).disabled=on;
+  document.querySelectorAll('input[name="l-engine"]').forEach(i=>{ if(!i.closest('.off')) i.disabled=on; });
+  if (!on){ $('l-meter').style.width='0'; pill('p-conn'); pill('p-mic'); pill('p-tr'); } }
+function liveError(title, body, actions){ banner('l-error','bad',title,body,actions); }
+
+async function startLive(){
+  $('l-error').innerHTML=''; $('l-go').disabled=true; liveState('Asking for the microphone…');
+  try { mic=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1, echoCancellation:true, noiseSuppression:true}}); }
+  catch (e){ $('l-go').disabled=false; liveState('Not listening.');
+    return liveError('Microphone blocked. ', e.name==='NotFoundError' ? 'No microphone was found on this device.'
+      : 'Allow microphone access for this page in your browser’s address bar, then try again.', [['Try again', startLive, 'primary']]); }
+  pill('p-mic','ok'); liveState('Connecting…');
+  const engine=picked('l-engine'), mode=$('l-out').value;
+  const body={source_language:$('l-src').value, target_language:$('l-tgt').value, mode, profile:$('l-pf').value, engine,
+    input:{type:'microphone', sample_rate:16000, channels:1}, output:{subtitles:mode!=='speech', audio:mode!=='subtitles'}};
+  if ($('l-q').value) body.translation_quality=$('l-q').value;
+  let res; try { res=await api('/api/v1/realtime/sessions',{method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body)}); }
+  catch { res=null; }
+  if (!res || !res.ok){ let why='The server did not answer.';
+    if (res){ try { why=(await res.json()).detail||why; } catch {} if (res.status===429) why='The server is busy with other sessions. Try again in a moment.';
+      if (res.status===401) why='This server needs an access token. Open the page with ?token=… in the address.'; }
+    stopTracks(); liveState('Not listening.'); $('l-go').disabled=false;
+    return liveError('Could not start. ', why, [['Try again', startLive, 'primary']]); }
+  sessionId=(await res.json()).session_id;
+  ws=new WebSocket(url(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/v1/realtime/sessions/${sessionId}/stream`));
+  ws.binaryType='arraybuffer';
+  ws.onopen=()=>{ pill('p-conn','ok'); liveState('Listening. Start speaking.'); llog('connected · '+engine);
+    ws.send(JSON.stringify({type:'SESSION_CONFIG', input:{sample_rate:16000, channels:1}})); ws.send(JSON.stringify({type:'AUDIO_START'})); };
+  ws.onclose=()=>{ if (listening){ teardown(); liveError('Connection lost. ','What was already translated is kept below.', [['Start again', startLive, 'primary']]); } };
+  ws.onmessage=ev=>onLive(JSON.parse(ev.data));
+  ctx=new AudioContext({sampleRate:16000});
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], {type:'text/javascript'})));
+  const srcNode=ctx.createMediaStreamSource(mic); node=new AudioWorkletNode(ctx,'vb-capture');
+  node.port.onmessage=e=>{ if (ws && ws.readyState===1) ws.send(e.data);
+    const a=new Int16Array(e.data); let s=0; for (let i=0;i<a.length;i+=8) s+=a[i]*a[i];
+    $('l-meter').style.width=Math.min(100, Math.sqrt(s/(a.length/8))/32768*420)+'%'; };
+  const mute=ctx.createGain(); mute.gain.value=0; srcNode.connect(node); node.connect(mute).connect(ctx.destination);
+  playAt=ctx.currentTime; setListening(true);
+}
+function stopTracks(){ try { mic && mic.getTracks().forEach(t=>t.stop()); } catch {} mic=null; pill('p-mic'); }
+function teardown(){ try { node && node.disconnect(); } catch {} stopTracks(); try { ctx && ctx.close(); } catch {}
+  ws=ctx=node=null; pending=[]; partial=''; renderHearing(); setListening(false); liveState('Not listening.'); }
+async function stopLive(){
+  $('l-go').disabled=true; liveState('Finishing the last sentence…'); listening=false;
+  try { node && node.disconnect(); } catch {} stopTracks();
+  const sock=ws;
+  if (sock && sock.readyState===1){ sock.send(JSON.stringify({type:'AUDIO_STOP'}));   // server flushes, then closes
+    await new Promise(r=>{ sock.addEventListener('close', r, {once:true}); setTimeout(r, 90000); }); }
+  if (sessionId){ api('/api/v1/realtime/sessions/'+sessionId, {method:'DELETE'}).catch(()=>{}); sessionId=null; }
+  teardown();
+}
+$('l-go').onclick=()=> listening ? stopLive() : startLive();
+
+function onLive(ev){ const t=ev.event_type;
+  if (t==='ASR_PARTIAL'){ partial=ev.text||''; renderHearing(); }
+  else if (t==='ASR_STABLE'){ if (!pending.length) pendingSince=performance.now(); pending.push(ev.text); partial=''; renderHearing(); }
+  else if (t==='TRANSLATION_FINAL'){ pill('p-tr','ok'); addUtterance(ev); }
+  else if (t==='TTS_AUDIO') play(ev);
+  else if (t==='LANGUAGE_DETECTED') $('l-det').textContent=LANG[ev.language]||ev.language;
+  else if (t==='SPEECH_EVENT' && !ev.should_transcribe && ev.event_type!=='SILENCE'){ skipped++; $('p-skip').hidden=false; $('l-skip').textContent=skipped;
+    llog(`skipped ${ev.event_type.toLowerCase().replace(/_/g,' ')} at ${ev.start.toFixed(1)}s`); }
+  else if (t==='WARNING') llog(ev.code==='asr_hallucination_rejected' ? `dropped unreliable text: “${ev.text||''}” (${ev.reason})` : ev.message);
+  else if (t==='ERROR'){ llog('error: '+ev.message);
+    if (!ev.recoverable){ liveError(ev.code==='SEAMLESS_MODEL_ERROR'?'The Seamless engine stopped. ':'Translation stopped. ', ev.message,
+        ev.code==='SEAMLESS_MODEL_ERROR' ? [['Switch to VoiceBridge Cascade', ()=>{ const c=document.querySelector('input[name="l-engine"][value="cascade"]');
+          $('l-error').innerHTML=''; teardown(); if(c){ c.disabled=false; c.checked=true; prefs.set('l-engine','cascade'); } }, 'primary']] : []); } }
+}
+const norm = s => (s||'').replace(/\s+/g,'');
+function renderHearing(){ const text=pending.join(' ').trim();
+  if (!text && !partial){ if (hearingEl){ hearingEl.remove(); hearingEl=null; } return; }
+  if (!hearingEl){ hearingEl=document.createElement('div'); hearingEl.className='hearing'; }
+  hearingEl.innerHTML=`${esc(text)} <em>${esc(partial)}</em>`; $('transcript').appendChild(hearingEl); scrollDown(); }
+function scrollDown(){ const t=$('transcript'); if (t.scrollHeight - t.scrollTop - t.clientHeight < 160) t.scrollTop=t.scrollHeight; }
+function addUtterance(ev){
+  $('l-empty').hidden=true;
+  let need=norm(ev.source_text).length, started=pendingSince;      // consume the stable text this translation covers
+  while (pending.length && need>0) need-=norm(pending.shift()).length;
+  pendingSince=pending.length?performance.now():0;
+  if (started) $('l-delay').textContent=((performance.now()-started)/1000).toFixed(1)+' s';
+  const el=document.createElement('div'); el.className='utt';
+  el.innerHTML=`${ev.source_text?`<div class="src">${esc(ev.source_text)}</div>`:''}<div class="tgt">${esc(ev.translated_text)}</div>
+    <div class="meta">${Number(ev.start||0).toFixed(1)}s</div>`;
+  $('transcript').insertBefore(el, hearingEl); utterances.push(ev); renderHearing(); scrollDown();
+  for (const id of ['l-copy','l-save','l-clear']) $(id).disabled=false;
+}
+function play(ev){ if (!ctx) return; const raw=atob(ev.audio), b=new Uint8Array(raw.length); for (let i=0;i<raw.length;i++) b[i]=raw.charCodeAt(i);
+  const pcm=new Int16Array(b.buffer), buf=ctx.createBuffer(1, pcm.length, ev.sample_rate||16000), ch=buf.getChannelData(0);
+  for (let i=0;i<pcm.length;i++) ch[i]=pcm[i]/32768;
+  const s=ctx.createBufferSource(); s.buffer=buf; s.connect(ctx.destination); playAt=Math.max(playAt, ctx.currentTime); s.start(playAt); playAt+=buf.duration; }
+const transcriptText = () => utterances.map(u=>(u.source_text?u.source_text+'\n':'')+u.translated_text).join('\n\n');
+$('l-copy').onclick=async()=>{ try { await navigator.clipboard.writeText(transcriptText()); toast('Transcript copied.'); } catch { toast('Copy failed. Use “Save .txt” instead.', true); } };
+$('l-save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([transcriptText()], {type:'text/plain'}));
+  a.download='voicebridge-transcript.txt'; a.click(); URL.revokeObjectURL(a.href); };
+$('l-clear').onclick=e=>confirmTwice(e.currentTarget, 'Clear everything?', ()=>{ utterances=[]; skipped=0; $('p-skip').hidden=true;
+  $('transcript').querySelectorAll('.utt').forEach(x=>x.remove()); $('l-empty').hidden=false;
+  for (const id of ['l-copy','l-save','l-clear']) $(id).disabled=true; });
+const WORKLET=`class VBCapture extends AudioWorkletProcessor{constructor(){super();this.buf=new Int16Array(1600);this.n=0;}
+process(inputs){const ch=inputs[0]&&inputs[0][0];if(!ch)return true;for(let i=0;i<ch.length;i++){let s=Math.max(-1,Math.min(1,ch[i]));
+this.buf[this.n++]=s<0?s*0x8000:s*0x7fff;if(this.n===this.buf.length){this.port.postMessage(this.buf.slice().buffer);this.n=0;}}return true;}}
+registerProcessor('vb-capture',VBCapture);`;
+
+// ------------------------------------------------------------------- file
+const STAGES=[['uploading','Uploading'],['preprocessing','Reading the file'],['speech_detection','Finding speech'],
+  ['transcribing','Recognising speech'],['translating','Translating'],['synthesizing','Generating voice'],['rendering','Building your files']];
+const ERRORS={   // what happened → what to do
+  FFMPEG_MISSING:['The server cannot read media files.','Its administrator needs to install FFmpeg.'],
+  CORRUPTED_MEDIA:['This file could not be read.','It may be damaged or not really audio/video. Try exporting it again or use another file.'],
+  NO_AUDIO_STREAM:['This file has no sound.','Choose a file that contains an audio track.'],
+  MEDIA_TOO_LONG:['This file is longer than the server allows.','Split it into shorter parts and translate them one by one.'],
+  NO_DIALOGUE_DETECTED:['No speech was found.','The file seems to contain only music, noise or silence, so there is nothing to translate.'],
+  SEAMLESS_MODEL_ERROR:['The Seamless engine could not finish.','You can run the same file with VoiceBridge Cascade instead.'],
+  TTS_UNAVAILABLE:['Speech could not be generated.','Turn off “Translated speech” to get subtitles only, or try another voice.'],
+  PROVIDER_UNAVAILABLE:['A model needed for this job is not available on the server.','Try a different quality or engine.'],
+  PROCESSING_TIMEOUT:['The job took too long and was stopped.','Try a shorter file or the Fast quality.'],
+  JOB_CANCELLED:['Cancelled.','Nothing was kept from this job.'],
+  INTERNAL_ERROR:['Something went wrong on the server.','Try again. If it keeps happening, the server log has the details.']};
+const HTTP_ERRORS={413:`That file is larger than this server accepts.`, 415:'The file’s contents do not match its type. Re-export it and try again.',
+  507:'The server is out of storage space. Delete old files under “Recent files” and try again.', 401:'This server needs an access token. Open the page with ?token=… in the address.'};
+let file=null, jobId=null, es=null, chips={skipped:0, dropped:0};
+const isVideo = name => LIMITS.video_extensions.includes((name.match(/\.[^.]+$/)||[''])[0].toLowerCase());
+function chooseFile(f){
+  $('f-file-error').innerHTML=''; file=null;
+  if (f){ const ext=(f.name.match(/\.[^.]+$/)||[''])[0].toLowerCase(), all=[...LIMITS.audio_extensions, ...LIMITS.video_extensions];
+    if (!all.includes(ext)) banner('f-file-error','bad','That file type is not supported. ',`Use one of: ${all.map(e=>e.slice(1).toUpperCase()).join(', ')}.`);
+    else if (f.size > LIMITS.max_file_size_mb*1048576) banner('f-file-error','bad','That file is too large. ',`The limit on this server is ${bytes(LIMITS.max_file_size_mb*1048576)}; this file is ${bytes(f.size)}.`);
+    else if (!f.size) banner('f-file-error','bad','That file is empty. ','Choose another file.');
+    else file=f; }
+  $('drop').hidden=!!file; $('f-chip').hidden=!file;
+  if (file){ $('f-name').textContent=file.name; $('f-sub').textContent=`${isVideo(file.name)?'Video':'Audio'} · ${bytes(file.size)}`;
+    document.querySelectorAll('.video-only').forEach(x=>x.hidden=!isVideo(file.name)); }
+  refreshStart(); }
+function refreshStart(){ const none=!$('o-dub').checked && !$('o-sub').checked && !$('o-subvid').checked;
+  const why=!file?'Choose a file to start.': none?'Select at least one output.': $('f-src').value===$('f-tgt').value?'Pick two different languages.':'';
+  $('f-go').disabled=!!why; $('f-why').textContent=why; }
+['o-dub','o-sub','o-subvid','f-src','f-tgt'].forEach(id=>$(id).addEventListener('change', refreshStart));
+const drop=$('drop');
+drop.onclick=()=>$('f-input').click(); drop.onkeydown=e=>{ if (e.key==='Enter'||e.key===' '){ e.preventDefault(); $('f-input').click(); } };
+$('f-input').onchange=e=>chooseFile(e.target.files[0]);
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.add('over'); }));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e=>chooseFile(e.dataTransfer.files[0]));
+window.addEventListener('dragover', e=>e.preventDefault()); window.addEventListener('drop', e=>e.preventDefault());
+$('f-remove').onclick=()=>{ $('f-input').value=''; chooseFile(null); };
+
+function drawStages(withUpload){ $('fp-stages').innerHTML=STAGES.filter(s=>withUpload||s[0]!=='uploading').map(([k,l])=>
+  `<li id="st-${k}"><span class="tick"></span>${l}<span class="pct"></span></li>`).join(''); }
+function setStage(stage, frac, overall){ let past=true;
+  for (const [k] of STAGES){ const li=$('st-'+k); if (!li) continue;
+    if (k===stage){ past=false; li.className='now'; li.querySelector('.pct').textContent=frac>0&&frac<1?Math.round(frac*100)+'%':''; li.querySelector('.tick').textContent=''; }
+    else { li.className=past?'done':''; li.querySelector('.tick').textContent=past?'✓':''; li.querySelector('.pct').textContent=''; } }
+  if (overall!=null){ $('fp-bar').firstElementChild.style.width=overall+'%'; $('fp-bar').setAttribute('aria-valuenow', Math.round(overall)); } }
+function phase(p){ $('f-setup').hidden=p!=='setup'; $('f-progress').hidden=p!=='progress'; $('f-result').hidden=p!=='result'; if (p!=='error') $('f-error').innerHTML=''; }
+const flog = m => { const d=document.createElement('div'); d.textContent=m; $('fp-log').prepend(d); };
+function renderChips(){ $('fp-chips').innerHTML=(chips.skipped?`<span class="pill">Non-speech sections skipped <b style="color:var(--text)">${chips.skipped}</b></span>`:'')
+  +(chips.dropped?`<span class="pill">Unreliable text dropped <b style="color:var(--text)">${chips.dropped}</b></span>`:''); }
+
+function submit(overrides={}){
+  if (!file) return;
+  const fd=new FormData(); fd.append('file', file); fd.append('source_language', $('f-src').value); fd.append('target_language', $('f-tgt').value);
+  fd.append('engine', overrides.engine||picked('f-engine')); if ($('f-q').value) fd.append('translation_quality', $('f-q').value);
+  fd.append('voice', $('f-voice').value); if ($('f-fmt').value) fd.append('output_format', $('f-fmt').value);
+  const video=isVideo(file.name), outs=[]; if ($('o-sub').checked) outs.push('srt','vtt'); if ($('o-dub').checked) outs.push('audio','video');
+  if (video && $('o-subvid').checked) outs.push('subtitled_video');
+  fd.append('outputs', outs.join(',')); fd.append('audio_mode', $('f-amode').value); fd.append('synthesize', $('o-dub').checked);
+  fd.append('subtitle_enabled', $('o-sub').checked || $('o-subvid').checked); fd.append('dual_subtitles', $('o-dual').checked);
+  phase('progress'); drawStages(true); chips={skipped:0, dropped:0}; renderChips(); $('fp-log').innerHTML='';
+  $('fp-title').textContent=`Translating ${file.name}`; $('fp-eta').textContent=''; setStage('uploading', 0, 0);
+  const xhr=new XMLHttpRequest(); xhr.open('POST', url('/api/v1/files/translate')); jobId=null;
+  $('fp-cancel').onclick=e=>confirmTwice(e.currentTarget, 'Really cancel?', ()=>{ if (jobId) api(`/api/v1/jobs/${jobId}/cancel`, {method:'POST'}); else xhr.abort(); });
+  xhr.upload.onprogress=e=>{ if (e.lengthComputable) setStage('uploading', e.loaded/e.total, 0); };
+  xhr.onabort=()=>{ phase('setup'); toast('Upload cancelled.'); };
+  xhr.onerror=()=>fail({code:'UPLOAD', title:'The upload did not reach the server.', tip:'Check your connection and try again.'});
+  xhr.onload=()=>{ if (xhr.status!==202){ let d=''; try { d=JSON.parse(xhr.responseText).detail; } catch {}
+      return fail({code:'UPLOAD', title:HTTP_ERRORS[xhr.status]||'The server did not accept this file.', tip:HTTP_ERRORS[xhr.status]?'':d}); }
+    jobId=JSON.parse(xhr.responseText).job_id; prefs.set('job', jobId); follow(jobId); loadJobs(); };
+  xhr.send(fd);
+}
+$('f-go').onclick=()=>submit();
+function follow(id){ if (es) es.close(); es=new EventSource(url(`/api/v1/jobs/${id}/events`));
+  es.onmessage=m=>{ const ev=JSON.parse(m.data);
+    if (ev.event==='job.progress' || ev.event==='job.created'){
+      if (STAGES.some(s=>s[0]===ev.stage)) setStage(ev.stage, ev.stage_progress||0, ev.progress);
+      $('fp-eta').textContent=ev.status==='queued'?'Waiting for an earlier job to finish…':human(ev.eta_seconds);
+      if (['completed','failed','cancelled'].includes(ev.status)){ es.close(); es=null; finish(id); } }
+    else if (ev.event==='SPEECH_EVENT' && !ev.should_transcribe && ev.event_type!=='SILENCE'){ chips.skipped++; renderChips();
+      flog(`skipped ${ev.event_type.toLowerCase().replace(/_/g,' ')} ${ev.start}s–${ev.end}s`); }
+    else if (ev.event==='WARNING' && ev.code==='asr_hallucination_rejected'){ chips.dropped++; renderChips(); flog(`dropped unreliable text “${ev.text}” (${ev.reason})`); }
+    else if (ev.event==='SUBTITLE_CREATED') flog(`${Number(ev.start).toFixed(1)}s  ${ev.text}`); };
+  es.onerror=()=>{ if (es && es.readyState===2){ es=null; finish(id); } }; }
+async function reattach(id){ try { const r=await api('/api/v1/jobs/'+id); if (!r.ok) return prefs.set('job','');
+    const job=await r.json(); if (['completed','failed','cancelled'].includes(job.status)) return prefs.set('job','');
+    jobId=id; phase('progress'); drawStages(false); $('fp-title').textContent=`Translating ${job.input.filename||'your file'}`;
+    $('fp-cancel').onclick=e=>confirmTwice(e.currentTarget, 'Really cancel?', ()=>api(`/api/v1/jobs/${id}/cancel`, {method:'POST'})); follow(id); } catch {} }
+const KIND=[[/\.subtitled\.(mp4|mkv|webm)$/,'Video with subtitles'],[/\.(mp4|mkv|webm|mov)$/,'Translated video'],
+  [/\.(mp3|wav|m4a|flac|ogg)$/,'Translated audio'],[/\.srt$/,'Subtitles (SRT)'],[/\.vtt$/,'Subtitles (VTT)']];
+async function finish(id){ prefs.set('job',''); let job;
+  try { job=await (await api('/api/v1/jobs/'+id)).json(); } catch { return fail({code:'UPLOAD', title:'Lost contact with the server.', tip:'Reload the page; the job may still be listed under Recent files.'}); }
+  loadJobs();
+  if (job.status==='cancelled'){ phase('setup'); return toast('Job cancelled.'); }
+  if (job.status!=='completed'){ const code=(job.error&&job.error.code)||'INTERNAL_ERROR', [title, tip]=ERRORS[code]||ERRORS.INTERNAL_ERROR;
+    return fail({code, title, tip, detail:job.error&&job.error.message}); }
+  showResult(job); }
+function showResult(job){ phase('result'); const id=job.job_id, log=job.log||{}, res=job.result||{};
+  $('fr-title').textContent=`${job.input.filename||'Your file'} is ready`;
+  $('fr-meta').textContent=[res.segments!=null?`${res.segments} ${res.segments===1?'line':'lines'} translated`:'', log.processing_seconds?`took ${Math.round(log.processing_seconds)} s`:''].filter(Boolean).join(' · ');
+  $('fr-downloads').innerHTML=job.outputs.slice().sort((a,b)=>KIND.findIndex(k=>k[0].test(a))-KIND.findIndex(k=>k[0].test(b))).map(n=>
+    `<a href="${url(`/api/v1/jobs/${id}/outputs/${encodeURIComponent(n)}`)}" download><b>${(KIND.find(k=>k[0].test(n))||[0,'File'])[1]}</b><span>${esc(n)}</span></a>`).join('');
+  const rows=(res.preview||[]).map(p=>`<tr><td class="t">${Number(p.start).toFixed(1)}s</td><td>${esc(p.source||'')}</td><td>${esc(p.translation||'')}</td></tr>`).join('');
+  $('fr-preview').innerHTML=rows?`<tr><th>Time</th><th>Original</th><th>Translation</th></tr>${rows}`:'<tr><td>No text preview is available for this job.</td></tr>'; }
+function fail(e){ phase('error'); $('f-setup').hidden=false; prefs.set('job','');
+  const actions=[['Try again', ()=>{ $('f-error').innerHTML=''; submit(); }, 'primary']];
+  if (e.code==='SEAMLESS_MODEL_ERROR') actions.unshift(['Retry with VoiceBridge Cascade', ()=>{ $('f-error').innerHTML=''; submit({engine:'cascade'}); }, 'primary']);
+  if (['NO_DIALOGUE_DETECTED','NO_AUDIO_STREAM','CORRUPTED_MEDIA','MEDIA_TOO_LONG','JOB_CANCELLED'].includes(e.code)) actions.length=0;
+  banner('f-error','bad', e.title+' ', [e.tip, e.detail && e.code==='SEAMLESS_MODEL_ERROR' ? e.detail : ''].filter(Boolean).join(' '), file?actions:[]); }
+$('fr-again').onclick=()=>{ $('f-input').value=''; chooseFile(null); phase('setup'); };
+
+const STATUS={completed:['ok','Ready'], failed:['bad','Failed'], cancelled:['','Cancelled'], queued:['warn','Waiting']};
+async function loadJobs(){ let jobs=[]; try { jobs=(await (await api('/api/v1/jobs')).json()).jobs; } catch { return; }
+  $('jobs').innerHTML=jobs.length?'':'<div class="hint">Files you translate will be listed here until the server removes them.</div>';
+  for (const j of jobs.slice(0, 12)){ const [cls, label]=STATUS[j.status]||['warn', `${j.progress}%`], el=document.createElement('div'); el.className='job';
+    el.innerHTML=`<div style="min-width:0;flex:1"><div class="name">${esc(j.input.filename||'file')}</div>
+      <div class="sub">${esc(LANG[j.input.source_language]||j.input.source_language||'')} → ${esc(LANG[j.input.target_language]||j.input.target_language||'')} · ${new Date(j.created_at*1000).toLocaleString()}</div></div>
+      <span class="pill ${cls}"><i></i>${label}</span>`;
+    const open=document.createElement('button'); open.className='btn ghost'; open.textContent=j.status==='completed'?'Open':'View';
+    open.onclick=async()=>{ const job=await (await api('/api/v1/jobs/'+j.job_id)).json();
+      if (job.status==='completed') showResult(job); else if (['failed','cancelled'].includes(job.status)){ const c=(job.error&&job.error.code)||'INTERNAL_ERROR', [t, tip]=ERRORS[c]||ERRORS.INTERNAL_ERROR; phase('error'); $('f-setup').hidden=false; banner('f-error','bad', t+' ', tip); }
+      else reattach(j.job_id); scrollTo({top:0, behavior:'smooth'}); };
+    const del=document.createElement('button'); del.className='btn ghost danger'; del.textContent='Delete';
+    del.onclick=e=>confirmTwice(e.currentTarget, 'Delete files?', async()=>{ await api('/api/v1/jobs/'+j.job_id, {method:'DELETE'}); toast('Deleted.'); loadJobs(); });
+    el.append(open, del); $('jobs').appendChild(el); } }
+$('jobs-refresh').onclick=loadJobs;
+
+// ---------------------------------------------------------------- compare
+const COLS={engine:[['engine','Engine'],['id','Clip'],['status','Status'],['chrf','chrF'],['bleu','BLEU'],['wall_seconds','Seconds'],['rtf','× real time'],['resources','Peak memory']],
+  realtime:[['engine','Engine'],['id','Clip'],['ttft','First text (s)'],['ttfa','First audio (s)'],['segment_latency','Delay p50 / p95 (s)'],['segments','Segments']],
+  asr:[['model','Model'],['cer','Character errors'],['wer','Word errors'],['hallucination_rate','Invented text on non-speech'],['rtf','× real time'],['resources','Peak memory']],
+  translation:[['model','Model'],['chrf','chrF'],['bleu','BLEU'],['comet','COMET'],['latency','Seconds p50 / p95'],['resources','Peak memory']],
+  tts:[['model','Model'],['rtf','× real time'],['roundtrip_wer','Word errors when transcribed back'],['latency','Seconds p50 / p95'],['resources','Peak memory']]};
+const NAMES={engine:'Whole engines, same audio', realtime:'Live delay', asr:'Speech recognition', translation:'Translation', tts:'Speech generation'};
+const cell=(k, v, row)=> k==='model' && row.component==='asr' ? esc(v)+(row.gate?' + speech gate':'')+(row.validation===false?' (filter off)':'') : v==null||v===''?'—' : k==='resources' ? (v.peak_rss_gb!=null?v.peak_rss_gb.toFixed(1)+' GB':'—')
+  : typeof v==='object' ? (v.p50!=null?`${v.p50} / ${v.p95}`:'—') : ['cer','wer','hallucination_rate','roundtrip_wer'].includes(k)&&typeof v==='number' ? (v*100).toFixed(1)+' %'
+  : typeof v==='number' ? String(+v.toFixed(2)) : esc(v);
+async function loadReports(){ let d; try { d=await (await api('/api/v1/benchmarks')).json(); } catch { return; }
+  if (!d.reports.length){ $('reports').innerHTML='<div class="card empty"><b>No measurements yet</b>Run <code>python -m voicebridge.benchmark</code> on the server and the results will appear here.</div>'; return; }
+  $('reports').innerHTML=d.reports.map(r=>{ const groups={}; r.results.forEach(x=>(groups[x.component]=groups[x.component]||[]).push(x));
+    return `<div class="card"><b>${esc(r.title||'Benchmark')}</b><div class="hint">${esc((r.timestamp||'').slice(0,16).replace('T',' '))} · ${esc(r.environment.cpu||'')} · ${esc(r.environment.gpu||r.environment.device||'')}</div>`
+      + Object.entries(groups).map(([c, rows])=>{ const cols=COLS[c]||Object.keys(rows[0]).map(k=>[k,k]);
+        return `<h2 style="margin-top:16px">${NAMES[c]||c}</h2><div class="scroll"><table><tr>${cols.map(x=>`<th>${x[1]}</th>`).join('')}</tr>${rows.map(x=>`<tr>${cols.map(([k])=>`<td>${cell(k, x[k], x)}</td>`).join('')}</tr>`).join('')}</table></div>`; }).join('') + '</div>'; }).join(''); }
+
+boot();
+</script>
+</body>
+</html>

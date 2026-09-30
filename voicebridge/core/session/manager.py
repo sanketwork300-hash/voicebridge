@@ -17,15 +17,11 @@ from typing import Any
 
 from voicebridge.core.metrics.metrics import MetricsRegistry
 from voicebridge.core.pipeline.pipeline import TranslationPipeline
+from voicebridge.core.pipeline.s2st_pipeline import S2STRealtimePipeline
 from voicebridge.core.session.config import SessionConfig
-from voicebridge.core.types import SessionStatus, new_id, now
-from voicebridge.providers.base import ProviderUnavailable
-from voicebridge.providers.registry import (
-    ProviderSet,
-    asr_registry,
-    translation_registry,
-    tts_registry,
-)
+from voicebridge.core.types import SessionStatus, TranslationEngineMode, new_id, now
+from voicebridge.providers.factory import ProviderFactory
+from voicebridge.providers.registry import ProviderSet
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +67,7 @@ class SessionManager:
         metrics: MetricsRegistry | None = None,
         max_sessions: int = 8,
         max_session_seconds: float = 4 * 3600,
+        factory: ProviderFactory | None = None,
     ):
         from voicebridge.core.metrics.metrics import registry as default_registry
 
@@ -80,22 +77,11 @@ class SessionManager:
         self.max_session_seconds = max_session_seconds
         self._sessions: dict[str, Session] = {}
         self._lock = asyncio.Lock()
-        #: Providers are process-wide: models are large and loading one per
-        #: session would be both slow and a quick route to OOM.
-        self._shared: dict[str, Any] = {}
+        #: Providers are process-wide and shared with file jobs: models are
+        #: large and loading one per session would be slow and a route to OOM.
+        self.factory = factory or ProviderFactory(self.provider_config)
 
     # -- providers ---------------------------------------------------------
-
-    def _provider(self, kind: str, registry, config_key: str):
-        cfg = dict(self.provider_config.get(config_key, {}))
-        name = cfg.pop("provider", None) or cfg.pop("name", None) or "mock"
-        cache_key = f"{kind}:{name}"
-        existing = self._shared.get(cache_key)
-        if existing is not None:
-            return existing
-        instance = registry.create(name, **cfg)
-        self._shared[cache_key] = instance
-        return instance
 
     async def warmup(self) -> list[str]:
         """Preload the configured providers before the first session.
@@ -108,31 +94,15 @@ class SessionManager:
         not be warmed so the caller can log them; failures are not fatal
         because mock providers and subtitle-only sessions must keep working.
         """
-        failed: list[str] = []
-        for kind, registry in (
-            ("asr", asr_registry),
-            ("translation", translation_registry),
-            ("tts", tts_registry),
-        ):
-            try:
-                provider = self._provider(kind, registry, kind)
-                await provider.warmup()
-            except Exception as exc:
-                logger.warning("%s provider warmup failed: %s", kind, exc)
-                failed.append(f"{kind}: {exc}")
-        return failed
+        return await self.factory.warmup()
 
     def build_providers(self, config: SessionConfig) -> ProviderSet:
-        asr = self._provider("asr", asr_registry, "asr")
-        translation = self._provider("translation", translation_registry, "translation")
-        tts = None
-        if config.mode.wants_tts:
-            try:
-                tts = self._provider("tts", tts_registry, "tts")
-            except ProviderUnavailable as exc:
-                # Degrade rather than refuse: subtitles still work.
-                logger.warning("TTS unavailable, continuing without it: %s", exc)
-        return ProviderSet(asr=asr, translation=translation, tts=tts)
+        return self.factory.provider_set(
+            wants_tts=config.mode.wants_tts,
+            translation_preset=config.translation_quality,
+            target_language=config.target_language,
+            realtime=True,
+        )
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -146,9 +116,19 @@ class SessionManager:
                     f"server is at its session limit ({self.max_sessions})"
                 )
             session_id = new_id()
-            providers = self.build_providers(config)
             metrics = self.metrics.session(session_id)
-            pipeline = TranslationPipeline(session_id, config, providers, metrics)
+            if config.engine not in (TranslationEngineMode.CASCADE,
+                                     TranslationEngineMode.SEAMLESS_STREAMING):
+                raise ValueError(f"engine {config.engine.value!r} is not available for live "
+                                 "sessions; use cascade or seamless_streaming")
+            if config.engine is TranslationEngineMode.SEAMLESS_STREAMING:
+                # Direct S2ST: no cascade providers are constructed at all.
+                provider = self.factory.s2st(config.engine.value)
+                await provider.initialize()
+                pipeline = S2STRealtimePipeline(session_id, config, provider, metrics)
+            else:
+                providers = self.build_providers(config)
+                pipeline = TranslationPipeline(session_id, config, providers, metrics)
             session = Session(
                 session_id=session_id,
                 config=config,

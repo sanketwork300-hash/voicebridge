@@ -78,6 +78,34 @@ class MockASREngine(ASREngine):
     def __init__(self, language: str | None = None, **_: object):
         self._default_language = language or "en"
         self._sessions: dict[str, _MockSession] = {}
+        self._file_utterance = 0
+
+    async def transcribe_array(
+        self,
+        audio: object,
+        language: str | None = None,
+        initial_prompt: str | None = None,
+    ) -> list[dict[str, object]]:
+        """File mode: one scripted utterance per region, spread over its length.
+
+        Like the streaming mock this ignores the audio content; it only proves
+        the file pipeline's plumbing and timing arithmetic.
+        """
+        lang = (language if language and language != "auto" else self._default_language)
+        script = SCRIPTS.get(lang.split("-")[0], DEFAULT_SCRIPT)
+        text = script[self._file_utterance % len(script)]
+        self._file_utterance += 1
+        duration = len(audio) / 16000 if hasattr(audio, "__len__") else 1.0
+        return [
+            {
+                "text": text,
+                "start": 0.0,
+                "end": max(0.2, duration),
+                "language": lang,
+                "language_probability": 1.0,
+                "words": [],
+            }
+        ]
 
     @property
     def capabilities(self) -> ASRCapabilities:

@@ -45,6 +45,16 @@ class SessionSocket:
             channels=session.config.input.channels,
         )
 
+    stop_requested = False
+
+    async def wait_forwarded(self, timeout: float) -> None:
+        """Wait until every remaining pipeline event has been sent."""
+        if self._forward_task is not None:
+            try:
+                await asyncio.wait_for(asyncio.shield(self._forward_task), timeout=timeout)
+            except (TimeoutError, asyncio.CancelledError):
+                pass
+
     async def start(self) -> None:
         self._forward_task = asyncio.create_task(self._forward_events())
 
@@ -104,6 +114,9 @@ class SessionSocket:
             return True
 
         if message.type is ClientMessage.AUDIO_STOP:
+            # The client is done sending: the gateway drains the pipeline and
+            # delivers the remaining events before closing the socket.
+            self.stop_requested = True
             return False
 
         return True

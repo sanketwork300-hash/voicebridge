@@ -1,0 +1,249 @@
+{
+ "version": "ko_en20+nonspeech8",
+ "items": [
+  {
+   "id": "fleurs_ko_1510",
+   "audio": "../data/fleurs/ko_kr/dev/4310956194686288809.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "또한 유엔은 지구 온난화의 영향을 받는 국가들의 대처를 돕기 위한 기금의 조성을 완료하기를 기대하고 있습니다.",
+   "reference_translation": "The U.N. also hopes to finalize a fund to help countries affected by global warming to cope with the impacts.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1511",
+   "audio": "../data/fleurs/ko_kr/dev/2996178746841152568.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "곧, 폭동 진압 장비를 갖춘 경찰들이 마당으로 진입해 최루 가스를 이용하여 수감자들을 코너로 몰아넣었습니다.",
+   "reference_translation": "Soon, officers equipped with riot gear entered the yard and cornered the inmates with tear gas.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1513",
+   "audio": "../data/fleurs/ko_kr/dev/860010309572014424.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "아르헨티나는 세계 최고의 폴로 팀과 선수를 보유한 것으로 유명합니다.",
+   "reference_translation": "Argentina is well known for having one of the best polo teams and players in the world.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1514",
+   "audio": "../data/fleurs/ko_kr/dev/12942009904499145884.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "부상자들이 병원으로 이송되고 싸움이 중단되자, 약 40명의 수감자들은 교도소 마당에서 버티며 각자 유치장으로 돌아가길 거부했습니다.",
+   "reference_translation": "When the fighting ceased after the wounded were transported to the hospital, about 40 of the other remaining inmates stayed in the yard and refused to return to their cells.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1515",
+   "audio": "../data/fleurs/ko_kr/dev/3090147054428629100.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "마텔리가 4년 만에 다섯 번째 하는 CEP다.",
+   "reference_translation": "It is Martelly's fifth CEP in four years.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1516",
+   "audio": "../data/fleurs/ko_kr/dev/369328234568048938.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "본 장소에 밎는 존엄, 엄숙함, 경의를 다해 대해 주십시오. 홀로코스트나 나치에 대한 농담을 하지 마십시오.",
+   "reference_translation": "Please treat the site with all of the dignity, solemnity and respect it deserves. Do not make jokes about the Holocaust or Nazis.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1517",
+   "audio": "../data/fleurs/ko_kr/dev/9016764989689517950.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "AI 연구는 기계가 지능적 행동을 요구하는 작업을 자동화하는 연구를 포함합니다.",
+   "reference_translation": "Research in AI involves making machines to automate tasks that require intelligent behavior.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1518",
+   "audio": "../data/fleurs/ko_kr/dev/13842930443009797362.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "한 전직 필리핀 경찰관이 필리핀의 수도 마닐라에서 버스를 납치하여 홍콩 관광객들을 인질로 삼았다.",
+   "reference_translation": "A former Filipino policeman has kept Hong Kong tourists hostage by hijacking their bus in Manila, the capital of the Philippines.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1519",
+   "audio": "../data/fleurs/ko_kr/dev/11543408116050555970.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "대부분의 경우, 해외 갭 이어(gap-year) 코스에 등록하면 실제로 고국에서 고등 교육에 진학할 가능성을 높일 수 있습니다.",
+   "reference_translation": "In many cases, enrolling on a gap-year course abroad can actually improve your chances of moving into higher education back in your home country.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1521",
+   "audio": "../data/fleurs/ko_kr/dev/17467658996978969668.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "우주에 있는 위성은 신호를 받고 나서 거의 즉각적으로 반사해 내려보낸다.",
+   "reference_translation": "The satellite in space gets the call and then reflects it back down, almost instantly.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1522",
+   "audio": "../data/fleurs/ko_kr/dev/9595007295869700279.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "기술은 가상 현장학습에 도움을 줍니다. 학생들은 교실에 앉은 상태로 박물관 전시품들을 볼 수 있고, 수족관을 구경할 수 있으며, 아름다운 예술 작품을 감상할 수 있습니다.",
+   "reference_translation": "Technology offers the solution with virtual field trips. Students can look at museum artifacts, visit an aquarium, or admire beautiful art while sitting with their class.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1523",
+   "audio": "../data/fleurs/ko_kr/dev/15756257532154519560.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "최종 점수는 21 대 20으로 1점 차 승부였으며, 올블랙스(All Blacks)의 15연승으로 끝났다.",
+   "reference_translation": "The final score was a one-point victory, 21 to 20, ending the All Blacks' 15 game winning streak.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1524",
+   "audio": "../data/fleurs/ko_kr/dev/16956871552252940572.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "미터법 사용, 절대주의 체제에서 공화주의로의 전환, 민족주의와 국가는 한 통치자가 아닌 여러 사람의 소유라는 생각의 발생과 같이, 사회 및 정치적인 면에 많은 영향들을 미쳤습니다.",
+   "reference_translation": "There are a lot of social and political effects such as the use of metric system, a shift from absolutism to republicanism, nationalism and the belief the country belongs to the people not to one sole ruler.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1525",
+   "audio": "../data/fleurs/ko_kr/dev/10259838494439554052.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "이 도시는 전통적인 터키의 모습보다 지중해 유럽의 분위기를 더 많이 가지고 있지만 넓은 대로, 정면이 유리로 장식된 건물, 현대적인 쇼핑센터들 사이에 띄엄띄엄 전통적인 붉은 기와 지붕과 18세기 시장 그리고 오래된 모스크와 교회들이 있습니다.",
+   "reference_translation": "The broad boulevards, glass-fronted buildings and modern shopping centers are dotted with traditional red-tiled roofs, the 18th century market, and old mosques and churches, although the city has an atmosphere more of Mediterranean Europe than traditional Turkey.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1527",
+   "audio": "../data/fleurs/ko_kr/dev/10274346834387728229.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "폴란드 남자 시각 장애인 스키 선수 마키 크레젤(Maciej Krezel)과 가이드 안나 오가진스카(Anna Ogarzynska)가 슈퍼대회전(Super G)에서 13위로 경기를 마쳤다. 한국의 박종석은 남자 좌식스키 슈퍼대회전(Super G)에서 24위를 차지했다.",
+   "reference_translation": "Poland's men's visually impaired skier Maciej Krezel and guide Anna Ogarzynska finished thirteenth in the Super-G. South Korea's Jong Seork Park finished twenty-fourth in the men's sitting Super-G.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1528",
+   "audio": "../data/fleurs/ko_kr/dev/9932433357052887169.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "일부 축제들은 어린아이들이 있는 가족들을 위한 특별한 캠핑 공간을 가지고 있습니다.",
+   "reference_translation": "Some festivals have special camping areas for families with young children.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1529",
+   "audio": "../data/fleurs/ko_kr/dev/1728630922980379047.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "링의 CEO인 제이미 시미노프 (Jamie Siminoff)는 차고에 있던 그의 숍에서 초인종 소리를 들을 수 없었을 때 회사를 시작했다고 말했습니다.",
+   "reference_translation": "Previously, Ring's CEO, Jamie Siminoff, remarked the company started when his doorbell wasn't audible from his shop in his garage.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1530",
+   "audio": "../data/fleurs/ko_kr/dev/4876765447368142560.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "화요일에 베어 쓰러뜨릴 예정이었으나 긴급 법원의 판결로 구조되었다.",
+   "reference_translation": "It had been scheduled to be cut down on Tuesday, but was saved after an emergency court ruling.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1531",
+   "audio": "../data/fleurs/ko_kr/dev/4730829136298594185.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "동아프리카의 섬들은 아프리카 동부 연안을 따라 인도양에 자리 잡고 있다.",
+   "reference_translation": "The East African Islands are in the Indian Ocean off the eastern coast of Africa.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ko_1532",
+   "audio": "../data/fleurs/ko_kr/dev/14612788104958866255.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "108 접시의 Chhappan Bhog(힌두교에서는 신에게 바치는 단것, 과일, 견과류, 요리 등 56가지 다른 먹을거리들)가 Baba Shyam에게 차려졌습니다.",
+   "reference_translation": "108 plates of Chhappan Bhog (in Hinduism, 56 different edible items, like, sweets, fruits, nuts, dishes etc. which are offered to deity) were served to Baba Shyam.",
+   "category": "read_speech"
+  },
+  {
+   "id": "laughter_ko",
+   "audio": "../data/nonspeech/laughter.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "laughter"
+  },
+  {
+   "id": "crying_ko",
+   "audio": "../data/nonspeech/crying.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "crying"
+  },
+  {
+   "id": "applause_ko",
+   "audio": "../data/nonspeech/applause.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "applause"
+  },
+  {
+   "id": "vocalise_ko",
+   "audio": "../data/nonspeech/vocalise.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "singing"
+  },
+  {
+   "id": "choir_music_ko",
+   "audio": "../data/nonspeech/choir_music.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music_with_vocals"
+  },
+  {
+   "id": "synthetic_music_ko",
+   "audio": "../data/nonspeech/synthetic_music.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music"
+  },
+  {
+   "id": "synthetic_explosion_ko",
+   "audio": "../data/nonspeech/synthetic_explosion.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "sfx"
+  },
+  {
+   "id": "silence_ko",
+   "audio": "../data/nonspeech/silence.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "silence"
+  }
+ ]
+}

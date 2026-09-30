@@ -196,3 +196,16 @@ class TestStreaming:
         with pytest.raises(WebSocketDisconnect):
             with client.websocket_connect("/v1/sessions/missing/stream"):
                 pass
+
+
+def test_ui_page_is_served_and_self_contained():
+    from voicebridge.apps.gateway.main import create_app
+    from voicebridge.config import AppConfig
+
+    with TestClient(create_app(AppConfig(runtime={"warmup": []}))) as client:
+        page = client.get("/")
+        assert page.status_code == 200 and "<title>VoiceBridge</title>" in page.text
+        # no external assets: works offline and leaks nothing to third parties
+        assert "http://" not in page.text.replace("http://www.w3.org", "") and "https://" not in page.text
+        limits = client.get("/api/v1/models/options").json()["limits"]
+        assert ".mp4" in limits["video_extensions"] and limits["max_file_size_mb"] > 0

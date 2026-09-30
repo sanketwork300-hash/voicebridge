@@ -166,3 +166,41 @@ voicebridge -v serve                      # debug logging
 
 `GET /v1/sessions/{id}` reports every queue's depth, capacity, policy and drop
 count — the fastest way to find which stage is the bottleneck.
+
+## File translation and model workers (v0.2)
+
+**`FFMPEG_MISSING`.** File jobs need `ffmpeg` and `ffprobe`. Install them, or set
+`media.ffmpeg_path` / `media.ffprobe_path` (or `VOICEBRIDGE_FFMPEG` /
+`VOICEBRIDGE_FFPROBE`). Live translation does not need FFmpeg.
+
+**`CORRUPTED_MEDIA` / `NO_AUDIO_STREAM`.** ffprobe could not read the container,
+or it has no audio track. Uploads are also rejected up front (`415`) when the
+content signature does not match the extension.
+
+**Jobs crawl and the machine swaps.** Several large models are resident at once.
+On a 14 GB machine, Qwen3-TTS in fp32 alone was 6.5 GB; in bf16 it is about 4.8 GB.
+Use `runtime.low_memory: true` (the translation LLM is freed before TTS),
+`providers.tts.idle_unload_seconds`, `runtime.warmup: [asr]` (lazy loading), the
+`fast` translation preset, or Piper TTS.
+
+**`qwen3-tts worker failed to start`.** Run `scripts/setup_workers.sh qwen`, or
+point `providers.tts.python` at an interpreter that has `qwen-tts` installed.
+Worker stderr is logged at DEBUG level under `voicebridge.workers.client`.
+
+**`Qwen3-TTS Base needs a reference voice`.** The Base checkpoint only clones.
+Use voice `source` (the original speaker's audio is used as the reference) or
+configure `providers.tts.voices.<name>.ref_audio`.
+
+**`SEAMLESS_MODEL_ERROR`.** The Seamless engine was selected and failed; the
+message says why (disabled, missing weights, unsupported language, worker
+crash). VoiceBridge never retries with the cascade on its own; choose the
+cascade explicitly if you want it.
+
+**Subtitles contain "ご視聴ありがとうございました" / "Thanks for watching" over music.**
+That is a Whisper hallucination. Make sure `speech_gate.enabled: true`; the ASR
+validator rejects these stock phrases unless the gate saw dialogue there.
+
+**A repeated phrase appears in the transcript ("the X is the X, and the X is...").**
+Whisper decoding loops, which were observed when the previous chunk's transcript was
+passed as the prompt. Keep `providers.asr.prompt_previous_text: false` (the
+default); the validator rejects phrase loops.

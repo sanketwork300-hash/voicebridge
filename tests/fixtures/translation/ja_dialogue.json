@@ -1,0 +1,21 @@
+{
+  "version": "vb-dialogue-ja-v1",
+  "note": "Authored by the VoiceBridge developers for context-sensitivity checks. Lines are consecutive dialogue; references are the developers' own translations, not a standard benchmark. Each 'phenomenon' names what the line tests.",
+  "items": [
+    {"id": "ja_d01", "source_language": "ja", "target_language": "en", "phenomenon": "setup", "reference_text": "昨日のことだけど…", "reference_translation": "About what happened yesterday..."},
+    {"id": "ja_d02", "source_language": "ja", "target_language": "en", "phenomenon": "omitted object from context", "reference_text": "彼には言わないで。", "reference_translation": "Don't tell him about it."},
+    {"id": "ja_d03", "source_language": "ja", "target_language": "en", "phenomenon": "question, sentence-final particle", "reference_text": "どうして？", "reference_translation": "Why not?"},
+    {"id": "ja_d04", "source_language": "ja", "target_language": "en", "phenomenon": "omitted subject", "reference_text": "まだ怒ってるから。", "reference_translation": "Because he's still angry."},
+    {"id": "ja_d05", "source_language": "ja", "target_language": "en", "phenomenon": "honorific -san", "reference_text": "田中さん、ちょっと待ってください！", "reference_translation": "Tanaka-san, please wait a moment!"},
+    {"id": "ja_d06", "source_language": "ja", "target_language": "en", "phenomenon": "negation at sentence end", "reference_text": "明日は学校に行かないつもりだった。", "reference_translation": "I wasn't planning to go to school tomorrow."},
+    {"id": "ja_d07", "source_language": "ja", "target_language": "en", "phenomenon": "slang", "reference_text": "マジで？ヤバくない？", "reference_translation": "Seriously? Isn't that bad?"},
+    {"id": "ja_d08", "source_language": "ja", "target_language": "en", "phenomenon": "honorific -sensei, omitted subject", "reference_text": "五条先生にはもう話したの？", "reference_translation": "Have you already told Gojo-sensei?"},
+    {"id": "ja_d09", "source_language": "ja", "target_language": "en", "phenomenon": "omitted subject from previous line", "reference_text": "うん、でも信じてくれなかった。", "reference_translation": "Yeah, but he didn't believe me."},
+    {"id": "ja_d10", "source_language": "ja", "target_language": "en", "phenomenon": "idiom", "reference_text": "猫の手も借りたいくらい忙しいんだ。", "reference_translation": "I'm so busy I'd take any help I can get."},
+    {"id": "ja_d11", "source_language": "ja", "target_language": "en", "phenomenon": "politeness: keigo", "reference_text": "お忙しいところ恐れ入りますが、少々お時間をいただけますか。", "reference_translation": "I'm sorry to bother you when you're busy, but could you spare a moment?"},
+    {"id": "ja_d12", "source_language": "ja", "target_language": "en", "phenomenon": "omitted subject, casual", "reference_text": "もう行っちゃったよ。", "reference_translation": "He's already gone."},
+    {"id": "ja_d13", "source_language": "ja", "target_language": "en", "phenomenon": "honorific -chan", "reference_text": "花ちゃん、泣かないで。", "reference_translation": "Hana-chan, don't cry."},
+    {"id": "ja_d14", "source_language": "ja", "target_language": "en", "phenomenon": "rhetorical negative question", "reference_text": "それって、ずるくない？", "reference_translation": "Isn't that unfair?"},
+    {"id": "ja_d15", "source_language": "ja", "target_language": "en", "phenomenon": "pronoun from context", "reference_text": "あいつのこと、まだ許してないんだ。", "reference_translation": "I still haven't forgiven that guy."}
+  ]
+}

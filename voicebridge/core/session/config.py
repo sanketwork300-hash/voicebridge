@@ -11,6 +11,7 @@ from voicebridge.core.types import (
     HonorificPolicy,
     LatencyProfile,
     NameRendering,
+    TranslationEngineMode,
     TranslationMode,
 )
 
@@ -59,8 +60,23 @@ class SessionConfig:
 
     voice: str | None = None
     speed: float = 1.0
+    style: str | None = None
+    translation_style: str | None = None
     context_segments: int = 4
     context_characters: int = 600
+    context_tokens: int = 2048
+    #: fast | balanced | high_quality -> providers.translation_presets
+    translation_quality: str | None = None
+    engine: TranslationEngineMode = TranslationEngineMode.CASCADE
+    speech_gate_enabled: bool = True
+    speech_gate_dialogue_threshold: float = 0.35
+    speech_gate_unknown_threshold: float = 0.35
+    speech_gate_non_speech_threshold: float = 0.60
+    translation_validation: str = "balanced"
+    tts_timing_enabled: bool = True
+    tts_max_rate: float = 1.20
+    tts_min_rate: float = 0.85
+    tts_duration_tolerance: float = 0.15
     preset: str | None = None
 
     @classmethod
@@ -73,6 +89,10 @@ class SessionConfig:
         inp = payload.get("input") or {}
         out = payload.get("output") or {}
         priv = payload.get("privacy") or {}
+        speech_gate = payload.get("speech_gate") or {}
+        translation = payload.get("translation") or {}
+        tts = payload.get("tts") or {}
+        timing = tts.get("timing") or {}
 
         cfg = cls(
             source_language=payload.get("source_language", "auto"),
@@ -106,8 +126,29 @@ class SessionConfig:
             glossary=SessionGlossary.from_payload(payload.get("glossary")),
             voice=payload.get("voice"),
             speed=float(payload.get("speed", 1.0)),
+            style=payload.get("style"),
+            translation_style=payload.get("translation_style") or payload.get("style"),
             context_segments=int(payload.get("context_segments", 4)),
             context_characters=int(payload.get("context_characters", 600)),
+            translation_quality=(payload.get("translation_quality")
+                                 or translation.get("quality") or None),
+            context_tokens=int(payload.get("context_tokens", translation.get("max_tokens", 2048))),
+            engine=_enum(
+                TranslationEngineMode,
+                payload.get("engine") or payload.get("translation_engine"),
+                TranslationEngineMode.CASCADE,
+            ),
+            speech_gate_enabled=bool(speech_gate.get("enabled", True)),
+            speech_gate_dialogue_threshold=float(speech_gate.get("dialogue_threshold", 0.35)),
+            speech_gate_unknown_threshold=float(speech_gate.get("unknown_threshold", 0.35)),
+            speech_gate_non_speech_threshold=float(
+                speech_gate.get("non_speech_threshold", 0.60)
+            ),
+            translation_validation=str(translation.get("validation", "balanced")),
+            tts_timing_enabled=bool(timing.get("enabled", True)),
+            tts_max_rate=float(timing.get("max_rate", 1.20)),
+            tts_min_rate=float(timing.get("min_rate", 0.85)),
+            tts_duration_tolerance=float(timing.get("duration_tolerance", 0.15)),
             preset=preset_name,
         )
         # Mode and output flags must agree; mode is authoritative.
@@ -123,6 +164,7 @@ class SessionConfig:
         d = asdict(self)
         d["mode"] = self.mode.value
         d["profile"] = self.profile.value
+        d["engine"] = self.engine.value
         d["name_rendering"] = self.name_rendering.value
         d["honorifics"] = self.honorifics.value
         d["output"]["mix"] = self.output.mix.value

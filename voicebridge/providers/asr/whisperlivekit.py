@@ -111,6 +111,21 @@ class _Session:
         return self.sequence
 
 
+def normalize_model_name(model: str) -> str:
+    """``openai/whisper-large-v3-turbo`` -> ``large-v3-turbo``.
+
+    Configuration uses the canonical Hugging Face id so it reads the same across
+    providers; WhisperLiveKit's ``model_size`` and faster-whisper's
+    ``WhisperModel`` both take the short size name (faster-whisper maps
+    ``large-v3-turbo`` to ``mobiuslabsgmbh/faster-whisper-large-v3-turbo``,
+    a CTranslate2 conversion of the same MIT-licensed weights, in
+    ``faster_whisper/utils.py``). Local paths are passed through untouched.
+    """
+    if model.startswith("openai/whisper-"):
+        return model[len("openai/whisper-"):]
+    return model
+
+
 class WhisperLiveKitASREngine(ASREngine):
     name = "whisperlivekit"
 
@@ -125,7 +140,7 @@ class WhisperLiveKitASREngine(ASREngine):
         warmup_file: str | None = None,
         **extra: object,
     ):
-        self.model = model
+        self.model = normalize_model_name(model)
         self.language = language
         self.backend = backend
         self.diarization = diarization
@@ -134,6 +149,10 @@ class WhisperLiveKitASREngine(ASREngine):
         self.warmup_file = warmup_file
         self.extra = extra
         self._engine: Any = None
+        self._file_model: Any = None
+        self._file_lock = asyncio.Lock()
+        self.compute_type = str(extra.pop("compute_type", "auto"))
+        self.beam_size = int(extra.pop("beam_size", 5))
         self._sessions: dict[str, _Session] = {}
         self._engine_lock = asyncio.Lock()
 
@@ -198,6 +217,83 @@ class WhisperLiveKitASREngine(ASREngine):
 
     async def warmup(self) -> None:
         await self._ensure_engine()
+
+    # -- file mode ---------------------------------------------------------
+
+    async def _ensure_file_model(self) -> Any:
+        """The faster-whisper model used for offline transcription.
+
+        When the streaming engine was built with the LocalAgreement policy its
+        ``asr`` is a ``FasterWhisperASR`` whose ``model`` is exactly a
+        ``faster_whisper.WhisperModel`` (``local_agreement/backends.py``); reuse
+        it so the weights are in memory once. Otherwise load our own.
+        """
+        if self._file_model is not None:
+            return self._file_model
+        async with self._file_lock:
+            if self._file_model is not None:
+                return self._file_model
+            try:
+                from faster_whisper import WhisperModel
+            except ImportError as exc:
+                raise ProviderUnavailable(
+                    "faster-whisper is required for file transcription: "
+                    "pip install 'voicebridge[asr-whisperlivekit]'"
+                ) from exc
+            shared = getattr(getattr(self._engine, "asr", None), "model", None)
+            if isinstance(shared, WhisperModel):
+                self._file_model = shared
+            else:
+                logger.info("loading faster-whisper %s for file transcription", self.model)
+                self._file_model = await asyncio.to_thread(
+                    WhisperModel, self.model, device="auto", compute_type=self.compute_type
+                )
+            return self._file_model
+
+    async def transcribe_array(
+        self,
+        audio: Any,
+        language: str | None = None,
+        initial_prompt: str | None = None,
+    ) -> list[dict[str, Any]]:
+        model = await self._ensure_file_model()
+        lang = language if language and language != "auto" else None
+
+        def run() -> list[dict[str, Any]]:
+            # vad_filter=False: the speech gate already selected this region,
+            # and faster-whisper's own VAD would re-cut it with different
+            # thresholds. Its built-in temperature fallback stays on.
+            segments, info = model.transcribe(
+                audio,
+                language=lang,
+                beam_size=self.beam_size,
+                word_timestamps=True,
+                vad_filter=False,
+                initial_prompt=initial_prompt or None,
+                condition_on_previous_text=False,
+            )
+            out = []
+            for seg in segments:
+                out.append(
+                    {
+                        "text": seg.text.strip(),
+                        "start": float(seg.start),
+                        "end": float(seg.end),
+                        "language": info.language,
+                        "language_probability": float(info.language_probability),
+                        "avg_logprob": float(seg.avg_logprob),
+                        "compression_ratio": float(seg.compression_ratio),
+                        "no_speech_prob": float(seg.no_speech_prob),
+                        "words": [
+                            {"text": w.word, "start": float(w.start), "end": float(w.end),
+                             "probability": float(w.probability)}
+                            for w in (seg.words or [])
+                        ],
+                    }
+                )
+            return out
+
+        return await asyncio.to_thread(run)
 
     async def start_session(
         self, session_id: str, language: str | None = None, **options: object

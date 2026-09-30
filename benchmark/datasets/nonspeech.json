@@ -1,0 +1,134 @@
+{
+ "version": "nonspeech-v1",
+ "license": "see benchmark/data/nonspeech/ATTRIBUTION.json",
+ "items": [
+  {
+   "id": "laughter_ja",
+   "audio": "../data/nonspeech/laughter.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "laughter"
+  },
+  {
+   "id": "laughter_ko",
+   "audio": "../data/nonspeech/laughter.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "laughter"
+  },
+  {
+   "id": "crying_ja",
+   "audio": "../data/nonspeech/crying.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "crying"
+  },
+  {
+   "id": "crying_ko",
+   "audio": "../data/nonspeech/crying.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "crying"
+  },
+  {
+   "id": "applause_ja",
+   "audio": "../data/nonspeech/applause.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "applause"
+  },
+  {
+   "id": "applause_ko",
+   "audio": "../data/nonspeech/applause.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "applause"
+  },
+  {
+   "id": "vocalise_ja",
+   "audio": "../data/nonspeech/vocalise.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "singing"
+  },
+  {
+   "id": "vocalise_ko",
+   "audio": "../data/nonspeech/vocalise.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "singing"
+  },
+  {
+   "id": "choir_music_ja",
+   "audio": "../data/nonspeech/choir_music.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music_with_vocals"
+  },
+  {
+   "id": "choir_music_ko",
+   "audio": "../data/nonspeech/choir_music.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music_with_vocals"
+  },
+  {
+   "id": "synthetic_music_ja",
+   "audio": "../data/nonspeech/synthetic_music.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music"
+  },
+  {
+   "id": "synthetic_music_ko",
+   "audio": "../data/nonspeech/synthetic_music.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music"
+  },
+  {
+   "id": "synthetic_explosion_ja",
+   "audio": "../data/nonspeech/synthetic_explosion.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "sfx"
+  },
+  {
+   "id": "synthetic_explosion_ko",
+   "audio": "../data/nonspeech/synthetic_explosion.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "sfx"
+  },
+  {
+   "id": "silence_ja",
+   "audio": "../data/nonspeech/silence.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "silence"
+  },
+  {
+   "id": "silence_ko",
+   "audio": "../data/nonspeech/silence.wav",
+   "source_language": "ko",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "silence"
+  }
+ ]
+}

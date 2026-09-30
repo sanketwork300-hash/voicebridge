@@ -103,19 +103,42 @@ class AudioChunk:
 class EventType(StrEnum):
     """Every event the pipeline can emit. Mirrors ``docs/protocol.md``."""
 
+    AUDIO_CHUNK = "AUDIO_CHUNK"
     SESSION_STARTED = "SESSION_STARTED"
+    SPEECH_EVENT = "SPEECH_EVENT"
     ASR_PARTIAL = "ASR_PARTIAL"
     ASR_STABLE = "ASR_STABLE"
     ASR_FINAL = "ASR_FINAL"
+    SEGMENT_CREATED = "SEGMENT_CREATED"
     LANGUAGE_DETECTED = "LANGUAGE_DETECTED"
     SPEAKER_CHANGED = "SPEAKER_CHANGED"
+    TRANSLATION_STARTED = "TRANSLATION_STARTED"
     TRANSLATION_PARTIAL = "TRANSLATION_PARTIAL"
+    TRANSLATION_COMPLETED = "TRANSLATION_COMPLETED"
     TRANSLATION_FINAL = "TRANSLATION_FINAL"
+    TTS_STARTED = "TTS_STARTED"
+    TTS_COMPLETED = "TTS_COMPLETED"
     TTS_AUDIO = "TTS_AUDIO"
+    SUBTITLE_CREATED = "SUBTITLE_CREATED"
+    JOB_PROGRESS = "JOB_PROGRESS"
+    PIPELINE_ERROR = "PIPELINE_ERROR"
     METRIC = "METRIC"
     WARNING = "WARNING"
     ERROR = "ERROR"
     SESSION_ENDED = "SESSION_ENDED"
+
+
+class PipelineMode(StrEnum):
+    REALTIME = "realtime"
+    FILE = "file"
+
+
+class TranslationEngineMode(StrEnum):
+    CASCADE = "cascade"
+    SEAMLESS_STREAMING = "seamless_streaming"
+    #: Offline SeamlessM4T v2 reference backend (file mode only).
+    SEAMLESS_M4T_V2 = "seamless_m4t_v2"
+    BENCHMARK = "benchmark"
 
 
 class TranslationMode(StrEnum):
@@ -165,6 +188,15 @@ class NameRendering(StrEnum):
 class HonorificPolicy(StrEnum):
     NATURAL_ENGLISH = "natural_english"      # "Mr. Tanaka"
     PRESERVE_HONORIFICS = "preserve_honorifics"  # "Tanaka-san"
+    REMOVE = "remove"                        # "Tanaka"
+
+    @classmethod
+    def _missing_(cls, value: object):
+        # Short names used in the YAML config (``honorific_policy.mode``).
+        aliases = {"preserve": "preserve_honorifics", "naturalize": "natural_english",
+                   "naturalise": "natural_english"}
+        name = aliases.get(str(value).lower())
+        return cls(name) if name else None
 
 
 class SessionStatus(StrEnum):
@@ -174,6 +206,16 @@ class SessionStatus(StrEnum):
     STOPPING = "stopping"
     ENDED = "ended"
     FAILED = "failed"
+
+
+class AudioEventType(StrEnum):
+    DIALOGUE = "DIALOGUE"
+    VOCAL_NON_SPEECH = "VOCAL_NON_SPEECH"
+    MUSIC = "MUSIC"
+    SFX = "SFX"
+    BACKGROUND = "BACKGROUND"
+    SILENCE = "SILENCE"
+    UNKNOWN = "UNKNOWN"
 
 
 # --------------------------------------------------------------------------
@@ -256,6 +298,64 @@ class SynthesisedAudio:
     provider: str = ""
     source_start: float = 0.0
     source_end: float = 0.0
+
+
+@dataclass
+class TTSRequest:
+    text: str
+    language: str
+    speaker: str | None = None
+    emotion: str | None = None
+    speaking_rate: float = 1.0
+    pitch: float | None = None
+    style: str | None = None
+    sequence_id: int = 0
+    source_start: float = 0.0
+    source_end: float = 0.0
+    #: Path to a WAV clip of the voice to reproduce (voice-cloning engines):
+    #: a configured reference voice, or the source speaker's own audio when
+    #: the voice mode is ``source``.
+    reference_audio: str | None = None
+    #: Transcript of ``reference_audio`` when known (enables ICL cloning).
+    reference_text: str | None = None
+
+
+@dataclass
+class SpeechDecision:
+    should_transcribe: bool
+    event_type: str
+    confidence: float
+    start_time: float
+    end_time: float
+    reason: str | None = None
+    #: Per-category scores when a classifier produced them (multi-label).
+    scores: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class TranslationSegment:
+    id: str
+    start_time: float
+    end_time: float
+    source_text: str | None = None
+    translated_text: str | None = None
+    source_language: str | None = None
+    target_language: str | None = None
+    speaker_id: str | int | None = None
+    confidence: float | None = None
+    event_type: str | None = None
+    audio_path: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SpeechTranslationResult:
+    audio_path: str | None
+    source_language: str
+    target_language: str
+    segments: list[TranslationSegment] = field(default_factory=list)
+    duration: float = 0.0
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------

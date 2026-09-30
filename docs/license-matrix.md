@@ -126,3 +126,30 @@ Both report each provider's `model_license` and `commercial_use`.
 4. Add a row here and to `THIRD_PARTY_LICENSES.md`.
 5. Set `model_license` and `commercial_use` on the provider's capabilities.
 6. If it is non-commercial, gate it behind explicit acknowledgement as `nllb` is.
+
+
+---
+
+## v0.2 models and engines (checked 2026-09-30)
+
+| Model | Weights licence | Commercial use |
+| --- | --- | --- |
+| `openai/whisper-large-v3-turbo` (and CT2 conversions) | MIT | yes |
+| `Qwen/Qwen3-ASR-1.7B` | Apache-2.0 | yes |
+| `MIT/ast-finetuned-audioset-10-10-0.4593` | BSD-3-Clause | yes |
+| Silero VAD v6 (bundled in faster-whisper) | MIT | yes |
+| `Qwen/Qwen3-1.7B`, `Qwen/Qwen3-4B-Instruct-2507` | Apache-2.0 | yes |
+| `Qwen/Qwen3-TTS-12Hz-1.7B-Base` (+ tokenizer) | Apache-2.0 | yes |
+| `facebook/seamless-streaming` | CC-BY-NC-4.0 | **no** |
+| `facebook/seamless-m4t-v2-large` | CC-BY-NC-4.0 | **no** |
+| Piper voices `en_US-lessac`, `en_US-ryan`, `hi_IN-*` | research / CC-BY-NC-SA-4.0 | **no** |
+
+**Piper engine:** `piper-tts` ≥ 1.3 is GPL-3.0-or-later (package metadata of the
+installed 1.7.0). The archived MIT-licensed `rhasspy/piper` ended at 1.2.0.
+VoiceBridge imports it optionally and does not redistribute it; distributing a
+bundle that includes it brings GPL obligations.
+
+**Hindi TTS for commercial use:** no permissively licensed Hindi voice was found
+among the Piper voices checked, and Qwen3-TTS does not support Hindi. A
+commercial English→Hindi dub needs another TTS provider behind the same
+interface.

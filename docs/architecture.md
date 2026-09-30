@@ -200,3 +200,80 @@ every stage of a latency-critical path. For the deployment sizes this project
 targets, that cost buys nothing. `docs/deployment.md` describes when the split
 becomes worthwhile and how to do it — independent scaling, not tidiness, is the
 trigger.
+
+---
+
+## v0.2 additions
+
+### Speech gate (`core/pipeline/speech_gate.py`)
+
+VAD (Silero) answers *is there voice?*; the AudioSet classifier (AST) answers
+*what kind of sound?* and is multi-label. The combination rule, in order:
+
+1. VAD says no voice → reject.
+2. Dialogue score ≥ `dialogue_threshold` → transcribe, **even if music scores
+   higher** (dialogue over a soundtrack is the normal case in drama/anime).
+3. Some non-dialogue category ≥ `non_speech_threshold` → reject as that category.
+4. Otherwise `UNKNOWN` → transcribe when `transcribe_unknown` (the ASR
+   validator gets a second look).
+
+Realtime: decisions are made per `window_seconds` window, and rejected windows
+are forwarded to the streaming ASR as **silence of equal length**. Dropping
+them would shift WhisperLiveKit's sample-derived timestamps and starve its own
+VAD of the silence it needs to close an utterance. File mode: Silero regions
+over the whole file, classified in 2 s windows, merged.
+
+### ASR validation (`core/asr_validation/engine.py`)
+
+Measured on this project's non-speech clips: Whisper large-v3-turbo produced
+text on 8/8 clips (laughter, crying, applause, singing, music, synthetic
+explosion, silence), typically "ご視聴ありがとうございました", with
+`no_speech_prob = 0.00`. Decoder signals alone therefore cannot catch these;
+the validator combines decoder signals, text-shape checks (density, token
+repetition, character and phrase loops) and the speech gate's verdict. A
+stock phrase is accepted only with positive dialogue evidence from the gate.
+
+### Two orchestrations, one set of stages
+
+`TranslationPipeline` (realtime) and `FilePipeline` (files) share the gate,
+the validators, the segmenter, `translate_step.translate_segment` and
+`tts_step.synthesize_fitted`. Providers do not know which mode they run in; the
+only mode-specific provider method is `ASREngine.transcribe_array` (offline
+decoding with confidence signals), which the file pipeline prefers over the
+streaming session API.
+
+### Contextual translation
+
+`GlobalTranslationContext` keeps recent (source, translation) pairs within a
+segment count and an estimated token budget. Pairs that do not fit are folded
+into a short "Earlier:" summary instead of being dropped. The contextual
+provider receives the glossary *as prompt constraints* — the output is never
+string-replaced — while segment NMT providers keep the original sentinel
+masking. The honorific policy becomes a prompt instruction; for `preserve`, the
+old unambiguous-title heuristic still runs afterwards as a safety net because
+small local models often ignore the instruction.
+
+### TTS timing
+
+`synthesize_fitted` speeds up output that overruns its source line by more
+than `duration_tolerance`, capped at `max_rate`: by regenerating at a higher
+rate when the engine controls rate natively (file mode), else by
+pitch-preserving time-stretch (FFmpeg `atempo`). The `TimelineRenderer` places
+each clip at its source start; if the previous clip is still playing, the new
+one waits (no overlapping voices) and the delay is recorded as drift.
+
+### Engines
+
+`TranslationEngineMode` = `cascade` | `seamless_streaming` | `seamless_m4t_v2`
+| `benchmark`. S2ST engines produce the same `SpeechTranslationResult` as the
+cascade, so rendering is shared. An engine chosen by the user is never replaced
+by another on failure.
+
+### Model workers
+
+Qwen3-TTS/ASR and SeamlessStreaming run in separate virtualenvs behind a
+JSON-lines protocol (`voicebridge/workers`). The worker moves the real stdout to
+a private descriptor before importing model code, because libraries print to
+stdout. One request at a time per worker; idle workers can be stopped
+(`idle_unload_seconds`), which is the only reliable way to return a large
+model's memory.

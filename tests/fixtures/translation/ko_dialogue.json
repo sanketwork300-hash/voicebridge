@@ -1,0 +1,16 @@
+{
+  "version": "vb-dialogue-ko-v1",
+  "note": "Authored by the VoiceBridge developers for context-sensitivity checks. References are the developers' own translations, not a standard benchmark.",
+  "items": [
+    {"id": "ko_d01", "source_language": "ko", "target_language": "en", "phenomenon": "setup", "reference_text": "민수 오빠가 어제 전화했어.", "reference_translation": "Minsu-oppa called me yesterday."},
+    {"id": "ko_d02", "source_language": "ko", "target_language": "en", "phenomenon": "omitted subject", "reference_text": "내일 서울에 온대.", "reference_translation": "He says he's coming to Seoul tomorrow."},
+    {"id": "ko_d03", "source_language": "ko", "target_language": "en", "phenomenon": "honorific oppa, question", "reference_text": "오빠, 어디 가?", "reference_translation": "Oppa, where are you going?"},
+    {"id": "ko_d04", "source_language": "ko", "target_language": "en", "phenomenon": "honorific hyung, reported speech", "reference_text": "형이 그러는데 내일 비 온대.", "reference_translation": "Hyung says it's going to rain tomorrow."},
+    {"id": "ko_d05", "source_language": "ko", "target_language": "en", "phenomenon": "negation", "reference_text": "나는 그 사람을 안 좋아해.", "reference_translation": "I don't like that person."},
+    {"id": "ko_d06", "source_language": "ko", "target_language": "en", "phenomenon": "formal politeness", "reference_text": "선생님, 잠깐 말씀 좀 드려도 될까요?", "reference_translation": "Teacher, may I have a word with you for a moment?"},
+    {"id": "ko_d07", "source_language": "ko", "target_language": "en", "phenomenon": "slang", "reference_text": "대박! 진짜 짱이다.", "reference_translation": "No way! That's really awesome."},
+    {"id": "ko_d08", "source_language": "ko", "target_language": "en", "phenomenon": "honorific unnie, omitted object", "reference_text": "언니, 그거 나한테 빌려줄 수 있어?", "reference_translation": "Unnie, can you lend that to me?"},
+    {"id": "ko_d09", "source_language": "ko", "target_language": "en", "phenomenon": "omitted subject from context", "reference_text": "벌써 다 먹었어?", "reference_translation": "Did you already eat all of it?"},
+    {"id": "ko_d10", "source_language": "ko", "target_language": "en", "phenomenon": "idiom", "reference_text": "그 사람은 발이 넓어.", "reference_translation": "He knows a lot of people."}
+  ]
+}

@@ -33,18 +33,37 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Streaming ASR. WhisperLiveKit pins Python <3.14, so this extra is not
-# installable on 3.14+ even though VoiceBridge itself is.
-asr-whisperlivekit = ["whisperlivekit>=0.2.0; python_version < '3.14'"]
+# ---- grouped extras ---------------------------------------------------------
+# Streaming + offline ASR (WhisperLiveKit / faster-whisper; bundles Silero VAD).
+# WhisperLiveKit pins Python <3.14, so this extra is empty on 3.14+.
+asr = ["whisperlivekit>=0.2.26; python_version < '3.14'", "soundfile>=0.12"]
+# Speech gate audio-event classifier (AST, via transformers).
+speech-gate = ["torch>=2.1", "transformers>=4.45", "soundfile>=0.12"]
+# Local translation: OPUS-MT, NLLB, and the contextual LLM provider's
+# `transformers` backend.
+translation = ["torch>=2.1", "transformers>=4.45", "sentencepiece>=0.1.99"]
+# Contextual provider's `anthropic` backend (the `openai` backend needs nothing).
+translation-api = ["anthropic>=0.40"]
+# Piper TTS. NOTE: piper-tts >= 1.3 is GPL-3.0-or-later (OHF-Voice/piper1-gpl).
+tts = ["piper-tts>=1.2"]
+# Media I/O helpers. FFmpeg itself is a *system* dependency (see README).
+media = ["soundfile>=0.12", "scipy>=1.10"]
+benchmark = ["sacrebleu>=2.4", "psutil>=5.9", "soundfile>=0.12"]
+# Qwen3-TTS / Qwen3-ASR and Meta Seamless run in separate worker virtualenvs
+# (their pinned dependencies conflict with the gateway's): see
+# scripts/setup_workers.sh. These extras are intentionally empty.
+asr-qwen = []
+tts-qwen = []
+s2st-seamless = []
 
-# Local translation models (OPUS-MT, NLLB).
-translation-local = ["torch>=2.0", "transformers>=4.40", "sentencepiece>=0.1.99"]
-# IndicTrans2 additionally needs AI4Bharat's tokenizer toolkit.
+# ---- backward-compatible names ---------------------------------------------
+asr-whisperlivekit = ["voicebridge[asr]"]
+translation-local = ["voicebridge[translation]"]
 translation-indic = [
   "torch>=2.0", "transformers>=4.40", "sentencepiece>=0.1.99",
   "IndicTransToolkit>=1.0",
 ]
-tts-piper = ["piper-tts>=1.2"]
+tts-piper = ["voicebridge[tts]"]
 audio-device = ["sounddevice>=0.4.6"]
 
 dev = [
@@ -54,13 +73,9 @@ dev = [
   "ruff>=0.4",
 ]
 
-# Everything that works without a GPU-only dependency.
+# Everything that installs on a CPU-only machine without a GPU-specific wheel.
 all = [
-  "voicebridge[asr-whisperlivekit]",
-  "voicebridge[translation-local]",
-  "voicebridge[translation-indic]",
-  "voicebridge[tts-piper]",
-  "voicebridge[audio-device]",
+  "voicebridge[asr,speech-gate,translation,tts,media,benchmark,audio-device]",
 ]
 
 [project.scripts]
@@ -74,6 +89,9 @@ Issues = "https://github.com/voicebridge/voicebridge/issues"
 
 [tool.setuptools.packages.find]
 include = ["voicebridge*"]
+
+[tool.setuptools.package-data]
+voicebridge = ["apps/gateway/static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"

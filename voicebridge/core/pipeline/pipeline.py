@@ -30,14 +30,23 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+from collections import deque
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any
 
+from voicebridge.core.asr_validation import ASRValidationEngine
 from voicebridge.core.context.glossary import SessionGlossary
-from voicebridge.core.context.honorifics import apply_policy
-from voicebridge.core.context.window import ContextEntry, ContextWindow
+from voicebridge.core.context.translation_context import GlobalTranslationContext
+from voicebridge.core.context.window import ContextEntry
 from voicebridge.core.metrics.metrics import SessionMetrics
+from voicebridge.core.pipeline.speech_gate import (
+    SpeechGate,
+    SpeechGateConfig,
+    decision_for_span,
+)
+from voicebridge.core.pipeline.translate_step import translate_segment
+from voicebridge.core.pipeline.tts_step import TimingConfig, synthesize_fitted
 from voicebridge.core.scheduling.tts_scheduler import TTSScheduler
 from voicebridge.core.segmentation.segmenter import PendingSegment, TranslationSegmenter
 from voicebridge.core.session.config import SessionConfig
@@ -48,11 +57,14 @@ from voicebridge.core.types import (
     AudioChunk,
     Event,
     EventType,
+    SpeechDecision,
     SynthesisedAudio,
     TranscriptSegment,
     TranslationResult,
+    TTSRequest,
     now,
 )
+from voicebridge.core.validation import TranslationValidationEngine
 from voicebridge.providers.base import ProviderError
 from voicebridge.providers.registry import ProviderSet
 
@@ -82,6 +94,7 @@ class TranslationJob:
     speaker: int | None = None
     language: str | None = None
     is_partial: bool = False
+    event_type: str | None = None
     enqueued_at: float = field(default_factory=now)
     #: Only partial jobs may be dropped under backpressure.
     @property
@@ -96,6 +109,9 @@ class TTSJob:
     sequence_id: int
     source_start: float
     source_end: float
+    speaker: int | None = None
+    emotion: str | None = None
+    style: str | None = None
     enqueued_at: float = field(default_factory=now)
 
     @property
@@ -126,13 +142,33 @@ class TranslationPipeline:
             language=None if config.source_language == "auto" else config.source_language,
             latency=config.profile,
         )
-        self.context = ContextWindow(
+        self.context = GlobalTranslationContext(
             max_segments=config.context_segments,
-            max_characters=config.context_characters,
+            max_tokens=config.context_tokens,
         )
         self.language_detector = LanguageDetectionStabilizer()
         self.scheduler = TTSScheduler()
         self.glossary: SessionGlossary = config.glossary
+        self.speech_gate = SpeechGate(
+            providers.vad,
+            providers.audio_event,
+            SpeechGateConfig(
+                enabled=config.speech_gate_enabled,
+                dialogue_threshold=config.speech_gate_dialogue_threshold,
+                unknown_threshold=config.speech_gate_unknown_threshold,
+                non_speech_threshold=config.speech_gate_non_speech_threshold,
+            ),
+        )
+        self.asr_validator = ASRValidationEngine()
+        # Realtime duration fitting uses time-stretch only: regenerating would
+        # double TTS latency on the live path.
+        self._timing = TimingConfig(
+            enabled=config.tts_timing_enabled, max_rate=config.tts_max_rate,
+            min_rate=config.tts_min_rate, duration_tolerance=config.tts_duration_tolerance,
+            regenerate=False)
+        self._recent_audio: deque[tuple[float, bytes]] = deque()
+        self.translation_validator = TranslationValidationEngine(config.translation_validation)
+        self._speech_decisions: list[SpeechDecision] = []
 
         # Overflow policy depends on whether the source is live.
         #
@@ -199,27 +235,49 @@ class TranslationPipeline:
             },
         )
 
-    async def stop(self) -> None:
+    async def stop(self, drain_timeout: float = 60.0) -> None:
+        """Stop the session, draining committed work first.
+
+        Order matters: audio pump -> ASR (its final text arrives during
+        ``stop_session``) -> segmenter flush -> translation -> TTS. Each stage
+        gets up to ``drain_timeout`` to finish what is already committed, so
+        the last sentence is translated and spoken instead of being cancelled
+        mid-flight; only then are the remaining tasks cancelled.
+        """
         if self._stopping:
             return
         self._stopping = True
+
+        async def drain(name: str, timeout: float) -> None:
+            task = next((t for t in self._tasks if t.get_name() == name), None)
+            if task is None or task.done():
+                return
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=timeout)
+            except (TimeoutError, asyncio.CancelledError):
+                logger.warning("%s did not drain within %.0fs", name, timeout)
+            except Exception:  # the stage already reported its own failure
+                pass
+
+        await self.audio_queue.put(None)
+        await drain("vb-audio", 30)
+        try:
+            await self.providers.asr.stop_session(self.session_id)
+        except Exception as exc:
+            logger.warning("error stopping ASR session: %s", exc)
+        await drain("vb-asr", 15)
 
         # Flush whatever the segmenter is still holding so the final sentence
         # is not lost on stop.
         for pending in self.segmenter.flush("session_stop"):
             await self._enqueue_translation(pending)
-
-        await self.audio_queue.put(None)
-        try:
-            await self.providers.asr.stop_session(self.session_id)
-        except Exception as exc:
-            logger.warning("error stopping ASR session: %s", exc)
-
-        # Let in-flight work drain briefly before cancelling.
         await self.translation_queue.put(None)
+        await drain("vb-translate", drain_timeout)
         if self.tts_available:
             await self.tts_queue.put(None)
-        await asyncio.sleep(0)
+            await drain("vb-tts", drain_timeout)
+            for ready in self.scheduler.tick():
+                await self._emit_audio(ready)
 
         for task in self._tasks:
             task.cancel()
@@ -262,19 +320,47 @@ class TranslationPipeline:
     async def _audio_pump(self) -> None:
         while True:
             chunk = await self.audio_queue.get()
-            if chunk is None:
-                return
             try:
-                with self.metrics.timer("asr_queue_latency"):
-                    pass
+                if chunk is None:
+                    # End of input: decide whatever the gate is still buffering.
+                    for forwarded, decision in await self.speech_gate.flush():
+                        await self._forward(forwarded, decision)
+                    return
                 self.metrics.observe("capture_latency", max(0.0, now() - chunk.created_at))
-                await self.providers.asr.push_audio(self.session_id, chunk)
+                with self.metrics.timer("speech_gate_latency"):
+                    gated = await self.speech_gate.gate_chunk(chunk)
+                self._remember_audio(chunk)
+                for forwarded, decision in gated:
+                    await self._forward(forwarded, decision)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
                 logger.exception("ASR push failed")
                 await self._error(f"Speech recognition failed: {exc}", recoverable=False)
                 return
+
+    async def _forward(self, chunk: AudioChunk, decision: SpeechDecision) -> None:
+        """Send one gated chunk to ASR, announcing each new gate decision once."""
+        if self._speech_decisions and self._speech_decisions[-1] is decision:
+            pass
+        else:
+            self._remember_speech_decision(decision)
+            await self._emit(
+                EventType.SPEECH_EVENT,
+                {
+                    "event_type": decision.event_type,
+                    "confidence": round(decision.confidence, 3),
+                    "should_transcribe": decision.should_transcribe,
+                    "start": decision.start_time,
+                    "end": decision.end_time,
+                    "reason": decision.reason,
+                },
+            )
+            if not decision.should_transcribe:
+                self.metrics.increment("speech_gate_rejected_windows")
+        # Rejected audio arrives here already replaced by silence of equal
+        # length, so the ASR clock never drifts from the source clock.
+        await self.providers.asr.push_audio(self.session_id, chunk)
 
     # -- stage: ASR events -------------------------------------------------
 
@@ -324,6 +410,7 @@ class TranslationPipeline:
                 end=float(payload.get("end", 0.0) or 0.0),
                 language=payload.get("language") or self.source_language,
                 speaker=payload.get("speaker"),
+                confidence=payload.get("confidence"),
             )
             update = self.stabilizer.update([segment], partial_text="")
             if update.rolled_back:
@@ -362,6 +449,22 @@ class TranslationPipeline:
         text = (pending.text or "").strip()
         if not text:
             return
+        # ASR validation runs here, on the complete unit. Streaming ASR commits
+        # text in token-sized deltas whose individual durations are meaningless
+        # (validating those rejected real speech as "too dense"/"too short").
+        validation = self.asr_validator.validate(
+            TranscriptSegment(text=text, start=pending.start, end=pending.end,
+                              language=pending.language or self.source_language),
+            speech_decision=self._speech_decision_for(pending.start, pending.end),
+        )
+        self.metrics.observe("asr_validation_confidence", validation.confidence)
+        if not validation.valid:
+            self.metrics.increment("asr_validation_rejected_segments")
+            await self._emit(EventType.WARNING, {
+                "code": "asr_hallucination_rejected", "text": text, "reason": validation.reason,
+                "start": pending.start, "end": pending.end,
+                "message": f"Rejected likely ASR hallucination ({validation.reason})."})
+            return
         self._translation_sequence += 1
         job = TranslationJob(
             text=text,
@@ -370,6 +473,7 @@ class TranslationPipeline:
             sequence_id=self._translation_sequence,
             speaker=pending.speaker,
             language=pending.language or self.source_language,
+            event_type=getattr(pending, "event_type", None),
         )
         if not self.translation_available:
             # Degraded: no translation, but the source transcript still flows,
@@ -390,6 +494,17 @@ class TranslationPipeline:
                 return
             self.metrics.observe("translation_queue_latency", max(0.0, now() - job.enqueued_at))
             try:
+                await self._emit(
+                    EventType.TRANSLATION_STARTED,
+                    {
+                        "source_text": job.text,
+                        "source_language": job.language or self.source_language,
+                        "target_language": self.target_language,
+                        "start": job.start,
+                        "end": job.end,
+                        "translation_sequence": job.sequence_id,
+                    },
+                )
                 result = await self._translate(job)
             except asyncio.CancelledError:
                 raise
@@ -408,6 +523,15 @@ class TranslationPipeline:
 
             if result is None:
                 continue
+            validation = self.translation_validator.validate(result)
+            self.metrics.observe("translation_validation_confidence", validation.confidence)
+            if not validation.valid:
+                self.metrics.increment("translation_validation_failures")
+                await self._warn(
+                    "translation_validation_failed",
+                    f"Translation validation failed: {', '.join(validation.issues)}",
+                )
+                continue
 
             latency = now() - job.enqueued_at
             self.metrics.observe("subtitle_latency", latency)
@@ -425,6 +549,19 @@ class TranslationPipeline:
                     "speaker": job.speaker,
                     "translation_sequence": job.sequence_id,
                     "committed": True,
+                    "validation": {
+                        "valid": validation.valid,
+                        "confidence": validation.confidence,
+                        "issues": validation.issues,
+                    },
+                },
+            )
+            await self._emit(
+                EventType.TRANSLATION_COMPLETED,
+                {
+                    "translation_sequence": job.sequence_id,
+                    "provider": result.provider,
+                    "confidence": result.confidence,
                 },
             )
 
@@ -446,6 +583,8 @@ class TranslationPipeline:
                         sequence_id=job.sequence_id,
                         source_start=job.start,
                         source_end=job.end,
+                        speaker=job.speaker,
+                        style=self.config.translation_style,
                     )
                 )
 
@@ -456,36 +595,20 @@ class TranslationPipeline:
             # Nothing detected yet; translating from an unknown language would
             # be a guess. Skip rather than mistranslate.
             return None
-        if source_language == self.target_language:
-            return TranslationResult(
-                source_text=job.text,
-                translated_text=job.text,
-                source_language=source_language,
-                target_language=self.target_language,
-                sequence_id=job.sequence_id,
-                provider="passthrough",
-            )
-
-        protected, mapping = self.glossary.protect(job.text, source_language)
-        context = self.context.source_context() if engine.capabilities.supports_context else None
-
         with self.metrics.timer("translation_latency"):
-            result = await engine.translate(
-                protected,
+            result = await translate_segment(
+                engine,
+                job.text,
                 source_language,
                 self.target_language,
-                context=context,
-                metadata={"speaker": job.speaker, "sequence_id": job.sequence_id},
+                glossary=self.glossary,
+                context=self.context,
+                honorifics=self.config.honorifics,
+                name_rendering=self.config.name_rendering,
+                speaker=job.speaker,
+                style=self.config.translation_style,
+                sequence_id=job.sequence_id,
             )
-
-        text = self.glossary.restore(
-            result.translated_text, mapping, self.config.name_rendering
-        )
-        text = apply_policy(job.text, text, self.config.honorifics, source_language)
-
-        result.translated_text = text
-        result.source_text = job.text  # report the original, not the protected form
-        result.sequence_id = job.sequence_id
         result.source_start = job.start
         result.source_end = job.end
         return result
@@ -502,14 +625,28 @@ class TranslationPipeline:
             if engine is None:
                 continue
             try:
+                await self._emit(
+                    EventType.TTS_STARTED,
+                    {"translation_sequence": job.sequence_id, "source_start": job.source_start},
+                )
+                request = TTSRequest(
+                    text=job.text,
+                    language=job.language,
+                    speaker=self.config.voice,
+                    emotion=job.emotion,
+                    speaking_rate=self.config.speed,
+                    style=job.style,
+                    sequence_id=job.sequence_id,
+                    source_start=job.source_start,
+                    source_end=job.source_end,
+                )
+                caps_for = getattr(engine, "capabilities_for", None)
+                caps = caps_for(job.language) if caps_for else engine.capabilities
+                if caps.voice_cloning and self.config.voice in (None, "source"):
+                    request.reference_audio = self._reference_clip(job)
                 with self.metrics.timer("tts_generation_latency"):
-                    audio = await engine.synthesize(
-                        job.text,
-                        job.language,
-                        speaker=self.config.voice,
-                        speed=self.config.speed,
-                        sequence_id=job.sequence_id,
-                    )
+                    audio, fit = await synthesize_fitted(engine, request, self._timing)
+                self.metrics.observe("tts_duration_mismatch", fit.mismatch)
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -526,6 +663,14 @@ class TranslationPipeline:
             self.metrics.observe("speech_latency", max(0.0, now() - job.enqueued_at))
             audio.source_start = job.source_start
             audio.source_end = job.source_end
+            await self._emit(
+                EventType.TTS_COMPLETED,
+                {
+                    "translation_sequence": job.sequence_id,
+                    "duration": audio.duration,
+                    "source_duration": max(0.0, job.source_end - job.source_start),
+                },
+            )
             for ready in self.scheduler.submit(audio):
                 await self._emit_audio(ready)
 
@@ -568,6 +713,37 @@ class TranslationPipeline:
             self.metrics.set_gauge("audio_queue_depth", self.audio_queue.qsize())
             self.metrics.set_gauge("translation_queue_depth", self.translation_queue.qsize())
             self.metrics.set_gauge("tts_backlog_seconds", self.scheduler.backlog_seconds)
+
+    def _remember_speech_decision(self, decision: SpeechDecision) -> None:
+        self._speech_decisions.append(decision)
+        if len(self._speech_decisions) > 256:
+            del self._speech_decisions[:128]
+
+    def _speech_decision_for(self, start: float, end: float) -> SpeechDecision | None:
+        return decision_for_span(self._speech_decisions, start, end)
+
+    def _remember_audio(self, chunk: AudioChunk) -> None:
+        """Keep the last ~60 s of source audio for voice-cloning references."""
+        self._recent_audio.append((chunk.start, chunk.data))
+        while self._recent_audio and chunk.end - self._recent_audio[0][0] > 60.0:
+            self._recent_audio.popleft()
+
+    def _reference_clip(self, job: TTSJob) -> str | None:
+        """Write the source speech of this segment (>= 3 s) as a WAV for cloning."""
+        if not self._recent_audio:
+            return None
+        start = job.source_start
+        end = max(job.source_end, start + 3.0)
+        parts = [data for t, data in self._recent_audio if t + len(data) / 32000 > start and t < end]
+        if not parts:
+            return None
+        import tempfile
+
+        from voicebridge.core.audio.dsp import pcm16_to_float, write_wav
+
+        path = tempfile.NamedTemporaryFile(prefix="vb-ref-", suffix=".wav", delete=False).name
+        write_wav(path, pcm16_to_float(b"".join(parts))[: int(12 * 16000)], 16000)
+        return path
 
     # -- events ------------------------------------------------------------
 

@@ -27,3 +27,9 @@ models/
 benchmarks/results/
 .env
 node_modules/
+
+# Benchmark data and results (datasets carry their own licences)
+benchmark/data/
+benchmark/results/
+storage/
+.venv-workers/

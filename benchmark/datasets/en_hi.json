@@ -1,0 +1,186 @@
+{
+  "version": "fleurs-dev-en-hi-20",
+  "license": "FLEURS: CC-BY-4.0",
+  "items": [
+    {
+      "id": "fleurs_en_1510",
+      "audio": "../data/fleurs/en_us/dev/2031944424456517788.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "The U.N. also hopes to finalize a fund to help countries affected by global warming to cope with the impacts.",
+      "reference_translation": "साथ ही संयुक्त राष्ट्र संघ वैश्विक तापवृद्धि (ग्लोबल वार्मिंग) से प्रभावित देशों को इसके प्रभावों से निपटने में सहायता करने के लिए एक निधि को एकत्र करने की आशा करता है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1511",
+      "audio": "../data/fleurs/en_us/dev/17566024285835266239.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Soon, officers equipped with riot gear entered the yard and cornered the inmates with tear gas.",
+      "reference_translation": "जल्द ही, दंगा संबंधी उपकरणों से लैस अधिकारियों ने अहाते में प्रवेश किया और कैदियों को आंसू गैस की मदद से काबू में कर लिया।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1512",
+      "audio": "../data/fleurs/en_us/dev/14943482914786149710.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "This new environment has different resources and different competitors, so the new population will need different features or adaptations to be a strong competitor than what they had needed before.",
+      "reference_translation": "इस नई जगह में अलग-अलग संसाधन और प्रतियोगी हैं, इसलिए नई आबादी को पहले के मुकाबले एक मजबूत प्रतियोगी बनने के लिए अलग-अलग खासियत या बदलाव अपनाने की ज़रूरत होगी.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1513",
+      "audio": "../data/fleurs/en_us/dev/822694990038496232.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Argentina is well known for having one of the best polo teams and players in the world.",
+      "reference_translation": "अर्जेंटीना दुनिया में सबसे अच्छी पोलो टीम और खिलाड़ियों के लिए जाना जाता है.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1514",
+      "audio": "../data/fleurs/en_us/dev/1250175024747413359.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "When the fighting ceased after the wounded were transported to the hospital, about 40 of the other remaining inmates stayed in the yard and refused to return to their cells.",
+      "reference_translation": "जब घायलों को लड़ाई बंद होने के बाद अस्पताल ले जाया गया, तो लगभग 40 अन्य बचे हुए कैदी यार्ड में रुके और अपनी कोठरियों में लौटने से इनकार कर दिया.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1515",
+      "audio": "../data/fleurs/en_us/dev/1317055409880056194.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "It is Martelly's fifth CEP in four years.",
+      "reference_translation": "चार साल में यह मार्टेली का पांचवां सीईपी है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1516",
+      "audio": "../data/fleurs/en_us/dev/17606651572533263873.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Please treat the site with all of the dignity, solemnity and respect it deserves. Do not make jokes about the Holocaust or Nazis.",
+      "reference_translation": "कृपया इस जगह का सम्मान करें, अपने व्यवहार में गंभीरता रखें और इससे वही सम्मान दें जिसकी यह हकदार है. होलोकास्ट या नाज़ी लोगों के बारे में मज़ाक न करें.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1517",
+      "audio": "../data/fleurs/en_us/dev/6983458379047535092.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Research in AI involves making machines to automate tasks that require intelligent behavior.",
+      "reference_translation": "एआई में अनुसंधान में ऐसे कार्यों को स्वचालित करने के लिए मशीनें बनाना शामिल है जिनमें बुद्धिमान व्यवहार की आवश्यकता होती है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1518",
+      "audio": "../data/fleurs/en_us/dev/3051387636483776445.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "A former Filipino policeman has kept Hong Kong tourists hostage by hijacking their bus in Manila, the capital of the Philippines.",
+      "reference_translation": "फिलीपींस के राजधानी मनीला में एक पूर्व फिलिपिनो पुलिसकर्मी ने उनकी बस को अपहरण करके हांगकांग के पर्यटकों को बंधक बना रखा है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1519",
+      "audio": "../data/fleurs/en_us/dev/1329002535244170064.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "In many cases, enrolling on a gap-year course abroad can actually improve your chances of moving into higher education back in your home country.",
+      "reference_translation": "कई मामलों में, विदेश में किसी एक साल के गैप वाले कोर्स में दाखिला लेने से, असल में आपको अपने देश में उच्च शिक्षा वाले किसी कोर्स में दाखिला लेने की संभावना बढ़ जाती है.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1520",
+      "audio": "../data/fleurs/en_us/dev/14159953987327027140.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Out of 1,400 people polled prior to the 2010 federal election, those who oppose Australia becoming a republic grew by 8 per cent since 2008.",
+      "reference_translation": "2010 के संघीय चुनाव से पहले 1,400 लोगों ने मतदान किया, 2008 से जो लोग ऑस्ट्रेलिया के गणतंत्र बनने का विरोध करते हैं उनमें 8 प्रतिशत की वृद्धि हुई.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1521",
+      "audio": "../data/fleurs/en_us/dev/11909868287041540501.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "The satellite in space gets the call and then reflects it back down, almost instantly.",
+      "reference_translation": "अंतरिक्ष में उपग्रह को कॉल मिलता है और फिर इसे वापस नीचे, उसी समय परावर्तित करता है.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1523",
+      "audio": "../data/fleurs/en_us/dev/7691076933585556685.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "The final score was a one-point victory, 21 to 20, ending the All Blacks' 15 game winning streak.",
+      "reference_translation": "अंतिम स्कोर एक अंक की जीत थी, 21 और 20, ऑल ब्लैक्स का 15 गेम लगातार जीतने का सिलसिला समाप्त हुआ ।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1524",
+      "audio": "../data/fleurs/en_us/dev/13212173517682821659.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "There are a lot of social and political effects such as the use of metric system, a shift from absolutism to republicanism, nationalism and the belief the country belongs to the people not to one sole ruler.",
+      "reference_translation": "मीट्रिक प्रणाली के इस्तेमाल, निरपेक्षवाद से गणतंत्रवाद, राष्ट्रवाद में बदलाव और देश का भरोसा लोगों से है किसी एक शासक से नहीं, ऐसी बातों का बहुत ज़्यादा सामाजिक और राजनैतिक असर होता है.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1525",
+      "audio": "../data/fleurs/en_us/dev/7197385702704991551.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "The broad boulevards, glass-fronted buildings and modern shopping centers are dotted with traditional red-tiled roofs, the 18th century market, and old mosques and churches, although the city has an atmosphere more of Mediterranean Europe than traditional Turkey.",
+      "reference_translation": "बड़े-बड़े बुलेवार्ड, ग्लास-फ्रंटेड इमारतों और आधुनिक शॉपिंग सेंटर पारंपरिक लाल टाइल वाली छतों से आच्छादित हैं, 18वीं शताब्दी के बाजार, और पुरानी मस्जिदें और चर्च हैं, हालांकि शहर में पारंपरिक तुर्की की तुलना में भूमध्यसागरीय यूरोप का माहौल अधिक है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1526",
+      "audio": "../data/fleurs/en_us/dev/7915535714920570360.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "If you visit the Arctic or Antarctic areas in the winter you will experience the polar night, which means that the sun doesn't rise above the horizon.",
+      "reference_translation": "यदि आप सर्दियों में आर्कटिक या अंटार्कटिक क्षेत्रों में जाते हैं, तो आप ध्रुवीय रात का अनुभव करेंगे, जिसका अर्थ है कि सूरज क्षितिज से ऊपर नहीं उगता है।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1527",
+      "audio": "../data/fleurs/en_us/dev/9904302921340515520.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Poland's men's visually impaired skier Maciej Krezel and guide Anna Ogarzynska finished thirteenth in the Super-G. South Korea's Jong Seork Park finished twenty-fourth in the men's sitting Super-G.",
+      "reference_translation": "पोलैंड निवासी नेत्रहीन पुरुष, मैकीज क्रेज़ेल और उनकी गाइड ऐना ऑगर्ज़िनस्का ने सुपर-जी मुकाबले में तेरहवाँ स्थान हासिल किया. इसके अलावा, दक्षिण कोरिया के जोंग सिऑर्क पार्क इस मुकाबले में चौबीसवें स्थान पर रहे.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1528",
+      "audio": "../data/fleurs/en_us/dev/6969469525741631060.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Some festivals have special camping areas for families with young children.",
+      "reference_translation": "कुछ फ़ेस्टिवल में छोटे बच्चों के साथ आने वाले परिवारों के लिए कैंप लगाने के ख़ास इलाके होते हैं.",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1529",
+      "audio": "../data/fleurs/en_us/dev/4153726051135194587.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "Previously, Ring's CEO, Jamie Siminoff, remarked the company started when his doorbell wasn't audible from his shop in his garage.",
+      "reference_translation": "इससे पहले, रिंग के सीईओ, जेमी सिमिनॉफ ने बताया था कि कंपनी तब शुरू हुई जब उसके दरवाज़े की घंटी उसके गेराज में स्थित दुकान से सुनाई नहीं देती थी।",
+      "category": "read_speech"
+    },
+    {
+      "id": "fleurs_en_1530",
+      "audio": "../data/fleurs/en_us/dev/11030046932175288954.wav",
+      "source_language": "en",
+      "target_language": "hi",
+      "reference_text": "It had been scheduled to be cut down on Tuesday, but was saved after an emergency court ruling.",
+      "reference_translation": "इसे मंगलवार को काटना तय किया गया था, लेकिन एक आपातकालीन अदालत के फ़ैसले के बाद इसे बचा लिया गया था.",
+      "category": "read_speech"
+    }
+  ]
+}

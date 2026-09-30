@@ -1,8 +1,12 @@
 # VoiceBridge configuration.
 #
-# Every value here can be overridden by an environment variable, which is what
-# the Docker profiles use. Secrets (API tokens) should come from the
-# environment only -- never commit one to this file.
+# Default: MOCK MODE -- the whole UI, API, job system and FFmpeg rendering run
+# with no models, no GPU and no network; nothing is actually recognised or
+# translated. For real models start from config/examples/cascade-cpu.yaml, or
+# switch the providers below (commented examples).
+#
+# Every value can be overridden by environment variables (VOICEBRIDGE_*).
+# Secrets (API tokens, LLM keys) come from the environment only.
 
 server:
   host: 127.0.0.1        # bind to 0.0.0.0 only behind a reverse proxy
@@ -12,60 +16,124 @@ server:
 security:
   # api_token: set VOICEBRIDGE_API_TOKEN in the environment instead.
   cors_origins: ["*"]
-  # Restrict who may open a WebSocket. Required for any non-localhost bind.
-  # Find your extension's id at chrome://extensions.
-  allowed_ws_origins: []
-  #   - "chrome-extension://*"
-  #   - "https://your-app.example.com"
+  allowed_ws_origins: []           # e.g. ["chrome-extension://*"]; required off-localhost
   max_sessions: 8
-  max_session_seconds: 14400        # 4 hours
+  max_session_seconds: 14400
   max_audio_frames_per_second: 100
 
+application:
+  mode: production
+
+pipeline:
+  mode: cascade                    # cascade | seamless_streaming | benchmark
+
+runtime:
+  device: auto                     # auto -> cuda, mps, cpu
+  dtype: auto                      # fp16/bf16 on GPU, bf16 on BF16-capable CPUs
+  warmup: [asr]                    # loaded at startup; others load on first use
+  low_memory: false                # file jobs release the LLM before TTS
+  # profile: cpu                   # one of runtime_profiles below
+
+languages:
+  source: [auto, ja, ko, en]
+  target: [en, hi]
+
+honorific_policy:
+  mode: preserve                   # preserve | naturalize | remove
+
+glossary: []
+#  - source: "特定の名前"
+#    target: "Specific Name"
+
 providers:
-  # -------------------------------------------------------------- mock mode
-  # The default. Runs the entire UI and pipeline with no models, no GPU and no
-  # network. Switch the three providers below to go live.
   asr:
     provider: mock
+    # provider: whisperlivekit
+    # model: openai/whisper-large-v3-turbo
+    # backend_policy: localagreement
+    # compute_type: int8           # faster-whisper file mode on CPU
+    # prompt_previous_text: false  # see docs/evaluation.md before enabling
+
+  speech_gate:
+    enabled: false                 # true needs the asr + speech-gate extras
+    vad: silero
+    event_classifier: ast
+    dialogue_threshold: 0.35
+    non_speech_threshold: 0.60
+    realtime_event_classifier: auto  # live sessions: on for GPU, off on CPU (AST is slower than real time there)
+    transcribe_unknown: true
+    window_seconds: 0.6
+
+  asr_validation: {}               # thresholds: no_speech_threshold, min_avg_logprob, ...
+
   translation:
     provider: mock
+    # provider: contextual
+    # backend: transformers        # transformers | openai | anthropic
+    # model: Qwen/Qwen3-1.7B
+    # context_segments: 8
+    # context: {max_tokens: 2048}
+    # validation: balanced         # strict | balanced | fast
+
+  # translation_presets:           # UI "Translation quality"
+  #   fast: {provider: opus_mt}
+  #   balanced: {provider: contextual, backend: transformers, model: Qwen/Qwen3-1.7B}
+  #   high_quality: {provider: contextual, backend: transformers, model: Qwen/Qwen3-4B-Instruct-2507}
+
+  # fallback_translation:
+  #   provider: opus_mt
+
+  # English -> Hindi with IndicTrans2 (MIT):
+  # translation: {provider: indictrans2, large: false, num_beams: 5}
+  # NLLB covers every pair but its weights are CC-BY-NC-4.0 (research mode):
+  # translation: {provider: nllb, acknowledge_non_commercial: true}
+
   tts:
     provider: mock
+    # provider: qwen3
+    # model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+    # default_voice: source        # clone each speaker from the source audio
+    # idle_unload_seconds: 300
+    # timing: {enabled: true, max_rate: 1.20, min_rate: 0.85, duration_tolerance: 0.15}
 
-  # ------------------------------------------------------- live: entertainment
-  # Japanese/Korean -> English. OPUS-MT is Apache-2.0 and CPU-fast.
-  #
-  # asr:
-  #   provider: whisperlivekit
-  #   model: large-v3-turbo      # GPU. On CPU use 'base' (verified) or 'small'
-  #   backend_policy: localagreement   # CPU: faster-whisper/CTranslate2 path.
-  #                                    # 'simulstreaming' (WhisperLiveKit's
-  #                                    # default) adds a PyTorch decoder and
-  #                                    # ran 2-3x slower than real time on a
-  #                                    # 16-core CPU here.
-  #   vac: true                  # voice activity controller
-  #   min_chunk_size: 0.5
-  # translation:
-  #   provider: opus_mt
-  #   num_beams: 2
-  #   preload_pairs: [[ja, en], [ko, en]]   # download+load at startup, not in
-  #                                          # the first session (~300 MB each)
-  # tts:
+  # fallback_tts:                  # languages the primary TTS lacks (e.g. Hindi)
   #   provider: piper
-  #   voices:
-  #     en: /models/piper/en_US-lessac-medium.onnx   # check each voice's licence
+  #   voices: {hi: models/piper/hi_IN-priyamvada-medium.onnx}
 
-  # -------------------------------------------------------------- live: Indic
-  # English -> Hindi/Marathi/Tamil. IndicTrans2 checkpoints are MIT-licensed.
-  #
-  # translation:
-  #   provider: indictrans2
-  #   large: false               # true selects the 1B models
-  #   num_beams: 5
+  s2st:
+    seamless_streaming:
+      enabled: false               # CC-BY-NC-4.0 weights: enable only after licence review
+      model: facebook/seamless-streaming
+      device: auto
+      dtype: auto
+    seamless_m4t_v2:
+      enabled: false               # CC-BY-NC-4.0
+      model: facebook/seamless-m4t-v2-large
 
-  # NLLB covers every pair in one model but its weights are CC-BY-NC-4.0.
-  # It refuses to load unless you acknowledge that restriction:
-  #
-  # translation:
-  #   provider: nllb
-  #   acknowledge_non_commercial: true
+media:
+  max_file_size_mb: 2048
+  max_duration_seconds: 14400
+  processing_timeout_seconds: 21600
+  disk_quota_gb: 50
+  job_workers: 1
+  retention_hours: 72             # finished jobs (uploads + outputs) are deleted after this
+  subtitles: true
+  # ffmpeg_path: /usr/bin/ffmpeg   # else VOICEBRIDGE_FFMPEG, else PATH
+  # ffprobe_path: /usr/bin/ffprobe
+
+storage:
+  backend: local
+  root: storage
+
+benchmark:
+  results_dir: benchmark/results
+
+# Machine-readable model matrix: see voicebridge/model_registry.py; entries
+# here add to or override it (served at GET /api/v1/models).
+models: {}
+
+runtime_profiles:                  # defaults only -- not claims that a model fits
+  cpu: {device: cpu, low_memory: true}
+  gpu_8gb: {device: cuda, max_concurrency: 1}
+  gpu_16gb: {device: cuda, max_concurrency: 1}
+  gpu_24gb: {device: cuda, max_concurrency: 2}

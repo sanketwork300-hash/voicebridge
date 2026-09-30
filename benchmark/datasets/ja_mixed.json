@@ -1,0 +1,249 @@
+{
+ "version": "ja_en20+nonspeech8",
+ "items": [
+  {
+   "id": "fleurs_ja_1510",
+   "audio": "../data/fleurs/ja_jp/dev/4094665828851158897.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "また、国連では、地球温暖化の影響を被っている国々がその影響に対処できるように支援するための基金について最終決定したいと考えています。",
+   "reference_translation": "The U.N. also hopes to finalize a fund to help countries affected by global warming to cope with the impacts.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1511",
+   "audio": "../data/fleurs/ja_jp/dev/14844643323670520228.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "まもなく暴動鎮圧用の装備を着用した警官たちが収容所に入り、催涙ガスで受刑者を追い詰めました。",
+   "reference_translation": "Soon, officers equipped with riot gear entered the yard and cornered the inmates with tear gas.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1512",
+   "audio": "../data/fleurs/ja_jp/dev/16543313051174382742.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "この新しい環境には、異なる資源と異なる競争相手が存在するため、新しい集団にはそれまで必要だったものとは異なる特徴や適応が必要となり、強力な競争相手となる可能性があります。",
+   "reference_translation": "This new environment has different resources and different competitors, so the new population will need different features or adaptations to be a strong competitor than what they had needed before.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1513",
+   "audio": "../data/fleurs/ja_jp/dev/11239210393592280523.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "アルゼンチンは、世界最高のポロチームとポロ競技選手を擁することで有名です。",
+   "reference_translation": "Argentina is well known for having one of the best polo teams and players in the world.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1514",
+   "audio": "../data/fleurs/ja_jp/dev/13555544963638181744.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "負傷者が病院に搬送された後に戦闘が収まると、他の約40人の受刑者は中庭に残り、独房に戻ることを拒否しました。",
+   "reference_translation": "When the fighting ceased after the wounded were transported to the hospital, about 40 of the other remaining inmates stayed in the yard and refused to return to their cells.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1515",
+   "audio": "../data/fleurs/ja_jp/dev/4295386676122656717.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "マルテリーにとっては4年間で5度目のCEPです。",
+   "reference_translation": "It is Martelly's fifth CEP in four years.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1516",
+   "audio": "../data/fleurs/ja_jp/dev/11946010384058816161.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "場にふさわしい敬意を払い、尊厳と礼節をもって立ち振る舞ってください。ホロコーストやナチスについて冗談を言うなどもってのほかです。",
+   "reference_translation": "Please treat the site with all of the dignity, solemnity and respect it deserves. Do not make jokes about the Holocaust or Nazis.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1517",
+   "audio": "../data/fleurs/ja_jp/dev/970180953108952514.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "AI研究には、知能を必要とする行動が求められるタスクを自動化する機械の製作が関わってきます。",
+   "reference_translation": "Research in AI involves making machines to automate tasks that require intelligent behavior.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1519",
+   "audio": "../data/fleurs/ja_jp/dev/10009621509886822059.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "多くの場合、海外のギャップイヤーコースに入学することで、帰国後に実際に大学に進学しやすくなります。",
+   "reference_translation": "In many cases, enrolling on a gap-year course abroad can actually improve your chances of moving into higher education back in your home country.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1521",
+   "audio": "../data/fleurs/ja_jp/dev/18146068393309246703.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "宇宙にある人工衛星は通話を受信して、ほぼ瞬時にそれを反映します。",
+   "reference_translation": "The satellite in space gets the call and then reflects it back down, almost instantly.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1522",
+   "audio": "../data/fleurs/ja_jp/dev/7656613669272340700.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "技術は、仮想社会科見学による学習方法を提供します。生徒たちは、教室に居ながらにして、博物館の工芸品を見たり、水族館を訪れたり、美しい芸術を鑑賞したりできます。",
+   "reference_translation": "Technology offers the solution with virtual field trips. Students can look at museum artifacts, visit an aquarium, or admire beautiful art while sitting with their class.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1523",
+   "audio": "../data/fleurs/ja_jp/dev/1204968976973295146.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "最終スコア21対20の1点差勝利で、オールブラックスの15連勝に終止符が打たれました。",
+   "reference_translation": "The final score was a one-point victory, 21 to 20, ending the All Blacks' 15 game winning streak.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1524",
+   "audio": "../data/fleurs/ja_jp/dev/11452130507990569418.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "メートル法の採用、絶対主義から共和主義への移行、愛国心、そして国は単独支配者ではなく国民のものであるという信念など、多くの社会的政治的影響がありました。",
+   "reference_translation": "There are a lot of social and political effects such as the use of metric system, a shift from absolutism to republicanism, nationalism and the belief the country belongs to the people not to one sole ruler.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1525",
+   "audio": "../data/fleurs/ja_jp/dev/9795347537155097587.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "広い大通りやガラス張りの建物、近代的なショッピングセンターには、伝統的な赤瓦屋根の建物や18世紀の市場、古いモスクや教会、シナゴーグなどが点在しており、伝統的なトルコというよりも地中海ヨーロッパの雰囲気が漂っています。",
+   "reference_translation": "The broad boulevards, glass-fronted buildings and modern shopping centers are dotted with traditional red-tiled roofs, the 18th century market, and old mosques and churches, although the city has an atmosphere more of Mediterranean Europe than traditional Turkey.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1526",
+   "audio": "../data/fleurs/ja_jp/dev/6390238109064655574.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "冬に北極や南極を訪れると、太陽が地平線から昇らない「極夜」を体験することができます。",
+   "reference_translation": "If you visit the Arctic or Antarctic areas in the winter you will experience the polar night, which means that the sun doesn't rise above the horizon.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1527",
+   "audio": "../data/fleurs/ja_jp/dev/13205813217473836129.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "ポーランドの視覚障害者スキーヤー、マキエイ・クレツェルとガイドのアンナ・オガルジンスカはスーパーＧで13位に入賞した。韓国のパク・ジョンソークは、男子シッティング・スーパーＧで２４位に終わった。",
+   "reference_translation": "Poland's men's visually impaired skier Maciej Krezel and guide Anna Ogarzynska finished thirteenth in the Super-G. South Korea's Jong Seork Park finished twenty-fourth in the men's sitting Super-G.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1528",
+   "audio": "../data/fleurs/ja_jp/dev/7736135123644969726.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "フェスティバルによっては、幼いお子供連れ家族向けに特別なキャンプ場を設けているところもあります。",
+   "reference_translation": "Some festivals have special camping areas for families with young children.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1529",
+   "audio": "../data/fleurs/ja_jp/dev/16805800775879847417.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "RingのCEOであるジェイミー・スミノフは以前に、玄関の呼び出し音がガレージにある自分店から聞こえなかったことから事業を始めたと述べました。",
+   "reference_translation": "Previously, Ring's CEO, Jamie Siminoff, remarked the company started when his doorbell wasn't audible from his shop in his garage.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1530",
+   "audio": "../data/fleurs/ja_jp/dev/6966244244941274896.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "ここは火曜日に伐採される予定だったが、裁判所による緊急判決によって救われました。",
+   "reference_translation": "It had been scheduled to be cut down on Tuesday, but was saved after an emergency court ruling.",
+   "category": "read_speech"
+  },
+  {
+   "id": "fleurs_ja_1532",
+   "audio": "../data/fleurs/ja_jp/dev/9368944464006617475.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "108枚のチャッパン・ボーグ（ヒンドゥー教では、お菓子、果物、ナッツ、料理など、神に供える56種類の食用品）がババ・シャムに供えられました。",
+   "reference_translation": "108 plates of Chhappan Bhog (in Hinduism, 56 different edible items, like, sweets, fruits, nuts, dishes etc. which are offered to deity) were served to Baba Shyam.",
+   "category": "read_speech"
+  },
+  {
+   "id": "laughter_ja",
+   "audio": "../data/nonspeech/laughter.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "laughter"
+  },
+  {
+   "id": "crying_ja",
+   "audio": "../data/nonspeech/crying.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "crying"
+  },
+  {
+   "id": "applause_ja",
+   "audio": "../data/nonspeech/applause.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "applause"
+  },
+  {
+   "id": "vocalise_ja",
+   "audio": "../data/nonspeech/vocalise.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "singing"
+  },
+  {
+   "id": "choir_music_ja",
+   "audio": "../data/nonspeech/choir_music.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music_with_vocals"
+  },
+  {
+   "id": "synthetic_music_ja",
+   "audio": "../data/nonspeech/synthetic_music.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "music"
+  },
+  {
+   "id": "synthetic_explosion_ja",
+   "audio": "../data/nonspeech/synthetic_explosion.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "sfx"
+  },
+  {
+   "id": "silence_ja",
+   "audio": "../data/nonspeech/silence.wav",
+   "source_language": "ja",
+   "target_language": "en",
+   "reference_text": "",
+   "category": "silence"
+  }
+ ]
+}

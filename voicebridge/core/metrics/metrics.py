@@ -162,7 +162,18 @@ class MetricsRegistry:
     def __init__(self) -> None:
         self._sessions: dict[str, SessionMetrics] = {}
         self._totals: dict[str, int] = defaultdict(int)
+        self._jobs: dict[str, Histogram] = {}
         self._lock = threading.Lock()
+
+    def record_job(self, status: str, timings: dict[str, float] | None = None) -> None:
+        """File-job outcome and per-stage seconds (exported as job histograms)."""
+        with self._lock:
+            self._totals[f"jobs_{status}"] += 1
+            for stage, seconds in (timings or {}).items():
+                if seconds is None:
+                    continue
+                hist = self._jobs.setdefault(stage, Histogram(stage))
+                hist.observe(float(seconds))
 
     def session(self, session_id: str) -> SessionMetrics:
         with self._lock:
@@ -221,6 +232,14 @@ class MetricsRegistry:
         for name, value in counters.items():
             lines.append(f"# TYPE voicebridge_{name} counter")
             lines.append(f"voicebridge_{name} {value}")
+        with self._lock:
+            jobs = {k: v.snapshot() for k, v in self._jobs.items()}
+        for stage, snap in jobs.items():
+            name = f"voicebridge_job_{stage}"
+            lines.append(f"# TYPE {name} summary")
+            for q, key in (("0.5", "p50"), ("0.95", "p95")):
+                if snap.get(key) is not None:
+                    lines.append(f'{name}{{quantile="{q}"}} {snap[key]:.6f}')
         return "\n".join(lines) + "\n"
 
 

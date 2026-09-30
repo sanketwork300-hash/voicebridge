@@ -49,6 +49,20 @@ def _build_parser() -> argparse.ArgumentParser:
                            help="pace input at wall-clock speed to observe live latency")
     translate.add_argument("--json", action="store_true", help="emit events as JSON lines")
 
+    tf = sub.add_parser("translate-file",
+                        help="translate an audio/video file with the file pipeline (no server)")
+    tf.add_argument("input", help="audio or video file")
+    tf.add_argument("--source", default="auto")
+    tf.add_argument("--target", default="en")
+    tf.add_argument("--engine", default="cascade",
+                    choices=["cascade", "seamless_streaming", "seamless_m4t_v2"])
+    tf.add_argument("--outputs", default="", help="audio,video,srt,vtt,subtitled_video")
+    tf.add_argument("--output-format", default="", help="wav | mp3 | m4a")
+    tf.add_argument("--audio-mode", default="replace", choices=["replace", "keep", "mix"])
+    tf.add_argument("--quality", default="", help="fast | balanced | high_quality")
+    tf.add_argument("--no-speech", action="store_true", help="subtitles only, no TTS")
+    tf.add_argument("--out", default=".", help="directory for the outputs")
+
     sub.add_parser("devices", help="list audio input devices")
     sub.add_parser("providers", help="list registered providers")
     return parser
@@ -185,6 +199,61 @@ def cmd_devices(_args) -> int:
     return 0
 
 
+async def cmd_translate_file(args) -> int:
+    """Run one file job in-process: the same executor the HTTP API uses."""
+    import shutil
+    import tempfile
+    from pathlib import Path
+
+    from voicebridge.api.uploads import sanitize_filename
+    from voicebridge.config import load_config
+    from voicebridge.core.jobs.errors import PipelineError
+    from voicebridge.core.jobs.executor import PipelineExecutor
+    from voicebridge.core.jobs.manager import JobRecord
+    from voicebridge.providers.factory import ProviderFactory
+    from voicebridge.runtime import warn_if_cpu
+    from voicebridge.storage import LocalArtifactStore
+
+    config = load_config(args.config)
+    warn_if_cpu(config.runtime)
+    factory = ProviderFactory(config.providers, config.runtime)
+    store = LocalArtifactStore(tempfile.mkdtemp(prefix="vb-cli-"))
+    src = Path(args.input)
+    key = f"uploads/input{src.suffix.lower()}"
+    await store.save_file(key, src)
+    job = JobRecord(job_id="cli", payload={
+        "upload_key": key, "filename": sanitize_filename(src.name),
+        "source_language": args.source, "target_language": args.target, "engine": args.engine,
+        "outputs": [o for o in args.outputs.split(",") if o] or None,
+        "output_format": args.output_format or None, "audio_mode": args.audio_mode,
+        "translation_quality": args.quality or None, "synthesize": not args.no_speech})
+
+    class Progress:
+        async def progress(self, job, stage, fraction=0.0):
+            print(f"\r{stage:18s} {fraction * 100:5.1f}%", end="", flush=True)
+
+        async def pipeline_event(self, job, event_type, payload):
+            if event_type == "SUBTITLE_CREATED":
+                print(f"\n  {payload['start']:7.2f}s  {payload['text']}")
+
+    try:
+        outputs = await PipelineExecutor(factory, store, config.raw | {"media": config.media}).run(
+            job, Progress())
+    except PipelineError as exc:
+        print(f"\nfailed: {exc.code}: {exc.message}")
+        return 1
+    finally:
+        await factory.unload()
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    print()
+    for name, artifact in sorted(outputs.items()):
+        shutil.copy2(await store.get(artifact), out / name)
+        print(out / name)
+    print(f"processing {job.log.get('processing_seconds')} s, RTF {job.log.get('rtf')}")
+    return 0
+
+
 def cmd_providers(_args) -> int:
     from voicebridge.providers.registry import (
         asr_registry,
@@ -223,6 +292,8 @@ def main(argv=None) -> int:
         return cmd_serve(args)
     if args.command == "translate":
         return asyncio.run(_translate(args))
+    if args.command == "translate-file":
+        return asyncio.run(cmd_translate_file(args))
     if args.command == "devices":
         return cmd_devices(args)
     if args.command == "providers":

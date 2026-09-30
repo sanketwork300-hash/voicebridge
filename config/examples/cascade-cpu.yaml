@@ -1,0 +1,123 @@
+# VoiceBridge cascade on a CPU-only machine (the configuration used for the
+# end-to-end runs recorded in docs/evaluation.md).
+#
+#   VOICEBRIDGE_CONFIG=config/examples/cascade-cpu.yaml voicebridge-gateway
+#
+# Model weights are downloaded by Hugging Face on first use, except where noted.
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+pipeline:
+  mode: cascade                    # cascade | seamless_streaming | benchmark
+
+runtime:
+  device: auto                     # auto -> cuda, mps, cpu
+  dtype: auto                      # auto -> fp16/bf16 on GPU, bf16 on AVX-512-BF16 CPUs
+  warmup: [asr]                    # load at startup; everything else loads on first use
+  low_memory: true                 # file jobs release the LLM before TTS (14 GB host)
+
+honorific_policy:
+  mode: preserve                   # preserve | naturalize | remove
+
+glossary: []
+#  - source: "五条先生"
+#    target: "Gojo-sensei"
+
+providers:
+  asr:
+    provider: whisperlivekit
+    model: openai/whisper-large-v3-turbo
+    backend_policy: localagreement # faster-whisper path; faster than simulstreaming on CPU
+    vac: true
+    min_chunk_size: 0.5
+    compute_type: int8             # faster-whisper file mode on CPU
+
+  speech_gate:
+    enabled: true
+    vad: silero
+    event_classifier: ast          # MIT/ast-finetuned-audioset (BSD-3-Clause)
+    dialogue_threshold: 0.35
+    non_speech_threshold: 0.60
+    realtime_event_classifier: auto  # live sessions: on for GPU, off on CPU (AST is slower than real time there)
+    transcribe_unknown: true
+    window_seconds: 0.6            # realtime decision window (adds <= 0.6 s latency)
+
+  asr_validation:
+    no_speech_threshold: 0.85
+    min_avg_logprob: -1.5
+    max_compression_ratio: 2.6
+
+  translation:
+    provider: contextual
+    backend: transformers          # transformers | openai | anthropic
+    model: Qwen/Qwen3-1.7B
+    context_segments: 8
+    context:
+      max_tokens: 2048
+    validation: balanced           # strict | balanced | fast
+
+  # Measured (docs/evaluation.md §3): for en->hi, Qwen3-1.7B scored chrF 21.5
+  # against OPUS-MT's 37.4, so Hindi does not use the default LLM.
+  translation_by_target:
+    hi:
+      provider: opus_mt
+
+  translation_presets:             # "Translation quality" in the UI
+    fast:
+      provider: opus_mt
+    balanced:
+      provider: contextual
+      backend: transformers
+      model: Qwen/Qwen3-1.7B
+    high_quality:
+      provider: contextual
+      backend: transformers
+      model: Qwen/Qwen3-4B-Instruct-2507
+
+  fallback_translation:
+    provider: opus_mt
+    num_beams: 2
+
+  tts:
+    provider: qwen3
+    model: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+    default_voice: source          # clone each speaker from the source audio
+    idle_unload_seconds: 300       # stop the TTS worker after 5 idle minutes
+    timing:
+      enabled: true
+      max_rate: 1.20
+      min_rate: 0.85
+      duration_tolerance: 0.15
+
+  fallback_tts:                    # languages Qwen3-TTS lacks (Hindi)
+    provider: piper
+    voices:
+      en: models/piper/en_US-lessac-medium.onnx      # research licence (Blizzard 2013)
+      hi: models/piper/hi_IN-priyamvada-medium.onnx  # CC-BY-NC-SA-4.0
+
+  s2st:
+    seamless_streaming:
+      enabled: true                # CC-BY-NC-4.0: evaluation only
+      model: facebook/seamless-streaming
+    seamless_m4t_v2:
+      enabled: true                # CC-BY-NC-4.0: evaluation only
+      model: facebook/seamless-m4t-v2-large
+
+media:
+  max_file_size_mb: 2048
+  max_duration_seconds: 14400
+  processing_timeout_seconds: 21600
+  disk_quota_gb: 50
+  job_workers: 1
+  retention_hours: 72             # finished jobs (uploads + outputs) are deleted after this
+  subtitles: true
+
+storage:
+  backend: local
+  root: storage
+
+languages:
+  source: [auto, ja, ko, en]
+  target: [en, hi]
